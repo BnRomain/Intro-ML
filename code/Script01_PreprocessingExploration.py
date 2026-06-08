@@ -84,6 +84,21 @@ def read_db(subset_dogs=None, TO_DB=IMG_FULL, color=True):
 ##########################################
 
 def entropy(p):
+    """
+    ========================================================================
+    TASK 1: SHANNON ENTROPY
+    ========================================================================
+    Computes the Shannon entropy of a discrete distribution to evaluate
+    class balance in the dataset. Maximum entropy indicates perfectly
+    balanced classes.
+
+    Formula: H(P) = -sum_i [ p_i * ln(p_i) ]
+
+    Steps:
+    - Convert p to a numpy float array
+    - Normalize so probabilities sum to 1 (empirical probabilities)
+    - Exclude p_i = 0 before applying log (avoid log(0) = -inf)
+    """
     entropy_value = 0.0
     p = np.array(p)
     p = p/np.sum(p)
@@ -245,9 +260,9 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     output_img = np.ones(output_shape) if pad_type.lower() == 'white' else np.zeros(output_shape)
     
     if multi_channel:
-        output_img[bottom:top, left:right, :] = resized_img
+        output_img[top:bottom, left:right, :] = resized_img
     else:
-        output_img[bottom:top, left:right] = resized_img
+        output_img[top:bottom, left:right] = resized_img
         
     return output_img
 
@@ -287,7 +302,7 @@ def project_onto_PCA(n_components, pca_model, data):
     For a given PCA model, projects input data and extracts the top 'nb_components' principal components as features.
     """
     ### STUDENT IMPLEMENTATION START ###
-    
+    data = pca_model.transform(data)
     return data[:,0:n_components] # Remove this placeholder 
 
 def visualize_var_pcs(pca, fig_path=None): 
@@ -299,9 +314,23 @@ def visualize_var_pcs(pca, fig_path=None):
     """
     exp_var_pca = pca.explained_variance_ratio_
     cum_var = np.cumsum(exp_var_pca)
-    #
-    # TODO: Create the visualization plot
-    #
+    
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+
+    # Barres : variance individuelle par composante
+    ax1.bar(range(len(exp_var_pca)), exp_var_pca, color='#2e75b6', alpha=0.8)
+    ax1.set_xlabel("Principal Component")
+    ax1.set_ylabel("Individual Explained Variance", color='#2e75b6')
+
+    # Deuxième axe Y pour la courbe cumulée
+    ax2 = ax1.twinx()
+    ax2.plot(range(len(cum_var)), cum_var, color='red', marker='o', markersize=3)
+    ax2.axhline(y=0.9, color='gray', linestyle='--', label='90% threshold')
+    ax2.set_ylabel("Cumulative Explained Variance", color='red')
+    ax2.legend(loc='center right')
+
+    ax1.set_title("PCA Scree Plot", fontweight='bold')
+    plt.tight_layout()
     
     if fig_path: 
         plt.savefig(fig_path, bbox_inches='tight', dpi=150)
@@ -317,9 +346,14 @@ def plot_whole_db_on_2d(pca, data_mtx, fig_path=None):
     """
     projected_data = project_onto_PCA(2, pca, data_mtx)
 
-    #
-    # TODO: Create the visualization plot
-    #
+    fig, ax = plt.subplots()
+    ax.scatter(projected_data[:, 0], projected_data[:, 1], c=labels, cmap='tab10', alpha=0.7)
+    ax.set_xlabel("Principal Component 1")
+    ax.set_ylabel("Principal Component 2")
+    ax.set_title("PCA 2D Projection", fontweight='bold')
+    plt.colorbar(ax.collections[0], label='Class')
+    plt.tight_layout()
+
 
     # Remark: You may also try a 3d scatter plot using the first three principal components, but this is not mandatory.
     

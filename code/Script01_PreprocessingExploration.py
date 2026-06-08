@@ -225,24 +225,20 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     ### STUDENT IMPLEMENTATION START ###
     
     # 1. Compute scaling ratios for height and width
-    h_r = height/h
-    w_r = width/w
-    if w > h:
-        new_h = height * w_r
-        new_w = width
-        difference = abs(h - new_h)
-
-        bottom, top = difference // 2, difference // 2 + new_h
-        left, right = 0, width
-    else:
+    h_r = height / h
+    w_r = width / w
+    if h_r < w_r:
         new_h = height
-        new_w = width * h_r
-        difference = abs(w - new_w)
+        new_w = int(w * h_r)
+        top, bottom = 0, height
+        left, right = (width - new_w) // 2, (width - new_w) // 2 + new_w
+    else:
+        new_h = int(h * w_r)
+        new_w = width
+        top, bottom = (height - new_h) // 2, (height - new_h) // 2 + new_h
+        left, right = 0, width
 
-        bottom, top = 0, height
-        left, right = difference//2, difference//2 + new_w
-    
-    ### STUDENT IMPLEMENTATION END ###
+        ### STUDENT IMPLEMENTATION END ###
 
     resized_img = img_resize(img, (new_h, new_w))
     output_shape = (height, width) + ((img.shape[2],) if multi_channel else ())

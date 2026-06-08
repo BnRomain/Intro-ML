@@ -33,7 +33,8 @@ IMG_FULL = os.path.join(PATH_TO_DB, IMG_DB)
 
 TARGET_SIZE = (64, 64) 
 
-os.makedirs('figures', exist_ok=True)
+FIGS = 'figures'
+os.makedirs(FIGS, exist_ok=True)
 
 ##########################################
 ## 1. Load Dataset
@@ -309,7 +310,7 @@ def plot_whole_db_on_2d(pca, data_mtx, fig_path=None):
     ========================================================================
     Projects the entire dataset onto the first two principal components and visualizes it as a scatter plot, colored by class labels.
     """
-    projected_data = project_onto_PCA(2, pca, data_mtx, True)
+    projected_data = project_onto_PCA(2, pca, data_mtx)
 
     #
     # TODO: Create the visualization plot

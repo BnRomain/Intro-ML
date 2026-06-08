@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+MLPythonVenv/
+figures/
+.env
+.DS_Store
+*.ipynb_checkpoints
+SmallDB/
+*.log

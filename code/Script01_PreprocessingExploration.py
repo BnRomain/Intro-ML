@@ -82,25 +82,11 @@ def read_db(subset_dogs=None, TO_DB=IMG_FULL, color=True):
 ##########################################
 
 def entropy(p):
-    """
-    ========================================================================
-    TASK 1: SHANNON ENTROPY IMPLEMENTATION
-    ========================================================================
-    Computes Shannon Entropy of a discrete probability distribution.
-    
-    Formula: H(P) = -sum(p_i * log_e(p_i))
-    
-    Requirements:
-    1. Convert 'p' to a floating-point numpy array.
-    2. Normalize 'p' so that it sums to 1.0 (empirical probabilities).
-    3. Filter out zero frequencies (p_i = 0) to avoid numerical log(0) errors.
-    """
-    ### STUDENT IMPLEMENTATION START ###
-    
-    # Remove this placeholder and write your math-to-code translation here:
     entropy_value = 0.0
-    
-    ### STUDENT IMPLEMENTATION END ###
+    p = np.array(p)
+    p = p/np.sum(p)
+    p = p[p != 0]
+    entropy_value = -np.sum(p * np.log(p))
     return entropy_value
 
 def entropy_breeds(labels):

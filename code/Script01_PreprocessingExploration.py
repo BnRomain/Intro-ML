@@ -8,6 +8,7 @@ import numpy as np
 
 # Visualisation
 import matplotlib.pyplot as plt
+from networkx import difference
 
 # Learning
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -216,6 +217,7 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
         - 'continuous': Pads with the closest pixel value in the original image.
     Other potential padding strategies (e.g., reflection, edge replication, mean pixel values...) can be implemented as extensions.
     """
+
     h, w = img.shape[:2]
     multi_channel = len(img.shape) == 3
     height, width = target_size
@@ -223,15 +225,22 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     ### STUDENT IMPLEMENTATION START ###
     
     # 1. Compute scaling ratios for height and width
-    h_r = 1.0
-    w_r = 1.0
-    
-    # 2. Determine non-distorted new_h and new_w dimensions, 
-    #    alongside the coordinate boundaries (bottom, top, left, right)
-    new_h = height
-    new_w = width
-    bottom, top = 0, height
-    left, right = 0, width
+    h_r = height/h
+    w_r = width/w
+    if w > h:
+        new_h = height * w_r
+        new_w = width
+        difference = abs(h - new_h)
+
+        bottom, top = difference // 2, difference // 2 + new_h
+        left, right = 0, width
+    else:
+        new_h = height
+        new_w = width * h_r
+        difference = abs(w - new_w)
+
+        bottom, top = 0, height
+        left, right = difference//2, difference//2 + new_w
     
     ### STUDENT IMPLEMENTATION END ###
 

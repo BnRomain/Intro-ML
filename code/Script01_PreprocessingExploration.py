@@ -232,48 +232,48 @@ def pad_random(resized_img, pad_width, multi_channel=False):
     h_new, w_new = resized_img.shape[:2]
     # Initialize padded image
     padded = np.pad(resized_img, pad_width, mode='constant', constant_values=0)
-    
+
     top, bottom_pad = pad_width[0]
     left, right_pad = pad_width[1]
     height, width = padded.shape[:2]
     bottom = height - bottom_pad
     right = width - right_pad
-    
+
     mask = np.ones(padded.shape[:2], dtype=bool)
     mask[top:bottom, left:right] = False
-    
+
     num_samples = np.sum(mask)
     if num_samples > 0:
         flat_resized = resized_img.reshape(-1, resized_img.shape[-1]) if multi_channel else resized_img.ravel()
         random_indices = np.random.choice(len(flat_resized), size=num_samples, replace=True)
         random_pixels = flat_resized[random_indices]
-        
+
         if multi_channel:
             padded[mask, :] = random_pixels
         else:
             padded[mask] = random_pixels
-            
+
     return padded
 
 
-def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=15, sigma=2.0):
+def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=5, sigma=0.5):
     # Start with continuous (edge replication) padding so we have a good boundary starting point
     padded = np.pad(resized_img, pad_width, mode='edge').astype(float)
-    
+
     top, bottom_pad = pad_width[0]
     left, right_pad = pad_width[1]
     height, width = padded.shape[:2]
     bottom = height - bottom_pad
     right = width - right_pad
-    
+
     mask = np.ones(padded.shape[:2], dtype=bool)
     mask[top:bottom, left:right] = False
-    
+
     if multi_channel:
         mask_3d = np.repeat(mask[:, :, np.newaxis], padded.shape[2], axis=2)
     else:
         mask_3d = mask
-        
+
     # Iteratively apply gaussian blur to the padded region
     for _ in range(iterations):
         if multi_channel:
@@ -281,7 +281,7 @@ def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=
         else:
             blurred = gaussian(padded, sigma=sigma)
         padded[mask_3d] = blurred[mask_3d]
-        
+
     return padded
 
 
@@ -324,11 +324,11 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
         ### STUDENT IMPLEMENTATION END ###
 
     resized_img = img_resize(img, (new_h, new_w))
-    
+
     pad_h = (top, height - bottom)
     pad_w = (left, width - right)
     pad_width = (pad_h, pad_w, (0, 0)) if multi_channel else (pad_h, pad_w)
-    
+
     pad_type_lower = pad_type.lower()
     if pad_type_lower == 'white':
         output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=1.0)
@@ -520,24 +520,24 @@ def compute_hog(image, nb_height_cells=4, nb_width_cells=4, nb_bins=8):
     ### STUDENT IMPLEMENTATION START ###
 
     for i in range(nb_height_cells):
-         for j in range(nb_width_cells):
-             cell_magnitude = magnitude[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
-             cell_orientation = orientation[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
+        for j in range(nb_width_cells):
+            cell_magnitude = magnitude[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
+            cell_orientation = orientation[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
 
-             for k in range(cell_h):
-                 for l in range(cell_w):
-                     ang = cell_orientation[k, l]
-                     mag = cell_magnitude[k, l]
+            for k in range(cell_h):
+                for l in range(cell_w):
+                    ang = cell_orientation[k, l]
+                    mag = cell_magnitude[k, l]
 
+                    index_bin = int(ang // bin_width)
 
-                     index_bin = int(ang // bin_width)
+                    if index_bin == nb_bins:
+                        index_bin = nb_bins - 1
 
-                     if index_bin == nb_bins:
-                         index_bin = nb_bins - 1
-
-                     output[i, j, index_bin] += mag
+                    output[i, j, index_bin] += mag
 
     return output.reshape(-1)
+
 
 # =========================================================================
 if __name__ == '__main__':
@@ -679,6 +679,36 @@ if __name__ == '__main__':
         ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2, f'{bar.get_width() * 100:.1f}%',
                 va='center', fontweight='bold')
     plt.savefig(os.path.join(FIGS, 'train_test_error.png'), bbox_inches='tight', dpi=150)
+    plt.close()
+
+    print("\n Step 7: Saving Random Image Preprocessing Comparisons")
+    # Pick 3 random indices from the database
+    random.seed(42)
+    sample_indices = random.sample(range(len(bw_dogs)), 3)
+
+    fig, axes = plt.subplots(3, 3, figsize=(9, 9))
+
+    for i, idx in enumerate(sample_indices):
+        orig = bw_dogs[idx]
+        img_cont = resize_and_pad(orig, target_size=TARGET_SIZE, pad_type='continuous')
+        img_blur = resize_and_pad(orig, target_size=TARGET_SIZE, pad_type='propagated_blur')
+
+        # Original (before resizing/padding)
+        axes[i, 0].imshow(orig, cmap='gray')
+        axes[i, 0].set_title(f"Original {i + 1} ({orig.shape[0]}x{orig.shape[1]})", fontsize=8)
+        axes[i, 0].axis('off')
+
+        # Continuous Padding
+        axes[i, 1].imshow(img_cont, cmap='gray')
+        axes[i, 1].set_title(f"Continuous Padding", fontsize=8)
+        axes[i, 1].axis('off')
+
+        # Propagated Blur Padding
+        axes[i, 2].imshow(img_blur, cmap='gray')
+        axes[i, 2].set_title(f"Propagated Blur", fontsize=8)
+        axes[i, 2].axis('off')
+
+    plt.savefig(os.path.join(FIGS, 'preprocessing_comparaisonV2.png'), bbox_inches='tight', dpi=150)
     plt.close()
 
     print("\n" + "=" * 50)

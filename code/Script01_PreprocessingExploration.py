@@ -80,6 +80,18 @@ def read_db(subset_dogs=None, TO_DB=IMG_FULL, color=True):
     return images, labels, label_names
 
 
+def load_dict(filepath):
+    import pickle
+    with open(filepath, 'rb') as f:
+        return pickle.load(f)
+
+
+def save_dict(d, filepath):
+    import pickle
+    with open(filepath, 'wb') as f:
+        pickle.dump(d, f)
+
+
 ##########################################
 ## 2. Exploratory Data Analysis
 ##########################################
@@ -605,6 +617,14 @@ if __name__ == '__main__':
         data_mtx, labels, test_size=0.25, stratify=labels, random_state=42
     )
     y_train, y_test = np.array(y_train), np.array(y_test)
+
+    # Cache arrays for SVC and downstream tasks
+    np.save("X_train_standard.npy", data_train)
+    np.save("X_test_standard.npy", data_test)
+    np.save("y_train_standard.npy", y_train)
+    np.save("y_test_standard.npy", y_test)
+    np.save("labels.npy", np.array(labels))
+    save_dict(label_names, "lbl_names.npy")
 
     # Global PCA Scree Plot mapping
     pca_global = my_PCA(data_train)

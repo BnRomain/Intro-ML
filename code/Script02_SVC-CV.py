@@ -37,19 +37,31 @@ else:
 
 
 # =========================================================================
-# TASK 1: QUANTIFYING TRAIN/TEST DISTRIBUTION RESEMBLANCE 
+# TASK 1: QUANTIFYING TRAIN/TEST DISTRIBUTION RESEMBLANCE
 # =========================================================================
-# Prevent the "Time Machine Effect". We must ensure our random splits 
+# Prevent the "Time Machine Effect". We must ensure our random splits
 # have similar class distributions before applying any transformations.
 
 ### STUDENT IMPLEMENTATION START ###
+
 # TODO: 1. Calculate the empirical distribution arrays (class probabilities) for y_train and y_test.
 #          Hint: Use np.unique(..., return_counts=True) and divide by the total length.
 # TODO: 2. Implement the Cosine Similarity metric to quantify the resemblance:
 #          Formula: (A dot B) / (norm(A) * norm(B))
 # What other similarity metrics could you have used here? (e.g., KL Divergence, Wasserstein Distance, etc.) How would you implement them mathematically?
 
-similarity_score = 0.0  # Replace this placeholder with your math
+_, train_counts = np.unique(y_train, return_counts=True)
+_, test_counts = np.unique(y_test, return_counts=True)
+
+P_train = train_counts / len(y_train)
+P_test = test_counts / len(y_test)
+
+# Formula: (A dot B) / (norm(A) * norm(B))
+dot_product = np.dot(P_train, P_test)
+norm_train = np.linalg.norm(P_train)
+norm_test = np.linalg.norm(P_test)
+
+similarity_score = dot_product / (norm_train * norm_test)
 
 ### STUDENT IMPLEMENTATION END ###
 print(f"   - Train/Test Resemblance (Cosine Similarity): {similarity_score:.6f}")
@@ -89,11 +101,17 @@ class PCAInfoPreprocessing(BaseEstimator, TransformerMixin):
         
         ### STUDENT IMPLEMENTATION START ###
         # TODO: 1. Clear historical instances tracked in self.pca_per_class.
+        self.pca_per_class = []
         # TODO: 2. Iterate through unique class identifiers present within vector 'y'.
-        # TODO: 3. Isolate matching instance data slices from 'X', train separate PCA models,
-        #          and append each fitted model to self.pca_per_class.
-        
-        pass 
+        classes_uniques = np.unique(y)
+        for cl in sorted(classes_uniques):
+            # TODO: 3. Isolate matching instance data slices from 'X', train separate PCA models,
+            #          and append each fitted model to self.pca_per_class.
+            X_classe = X[y == cl]
+            pca_modele = my_PCA(X_classe, n_components=self.n_components)
+            pca_modele.fit(X_classe)
+            self.pca_per_class.append(pca_modele)
+
         
         ### STUDENT IMPLEMENTATION END ###
         return self
@@ -105,7 +123,12 @@ class PCAInfoPreprocessing(BaseEstimator, TransformerMixin):
         # TODO: 1. Iterate through the fitted PCA models saved in self.pca_per_class.
         # TODO: 2. Transform the input matrix 'X' using each PCA model.
         # TODO: 3. Horizontally stack the outputs together using np.hstack.
-        
+        projections = []
+        for pca_modele in self.pca_per_class:
+            X_projette = pca_modele.transform(X)
+            projections.append(X_projette)
+
+        out = np.hstack(projections)
         ### STUDENT IMPLEMENTATION END ###
         return out
 
@@ -122,8 +145,17 @@ print("\n Step 2: Assembling automated Pipeline and FeatureUnion components...")
 #          The sequence MUST be: MinMaxScaler -> FeatureUnion -> StandardScaler -> SVC(kernel='linear').
 #          Name it 'pipeline_svc'.
 
-all_features = None  # Build using FeatureUnion([...])
-pipeline_svc = None  # Build using Pipeline([...])
+all_features = FeatureUnion([
+    ('pca', PCAInfoPreprocessing(n_components=5)),
+    ('edge', EdgeInfoPreprocessing())
+])
+
+pipeline_svc = Pipeline([
+    ('minmax', MinMaxScaler()),
+    ('features', all_features),
+    ('scaler', StandardScaler()),
+    ('classifier', SVC(kernel='linear'))
+])
 
 
 
@@ -142,8 +174,13 @@ if pipeline_svc is not None:
     # - PCA components: [5, 10]
     # - SVC Cost C: [0.1, 1, 10]
     # - SVC Gamma: [0.01, 0.1]
-    
-    param_grid = {}  # Fill with proper keys (e.g., 'features__pca__n_components') and value lists
+
+    param_grid = {
+        'features__pca__n_components': [5, 10],
+        'classifier__C': [0.1, 1, 10],
+        'classifier__gamma': [0.01, 0.1]
+    }
+    # Fill with proper keys (e.g., 'features__pca__n_components') and value lists
     
     ### STUDENT IMPLEMENTATION END ###
     
@@ -152,9 +189,9 @@ if pipeline_svc is not None:
     
     print("   Training the Grid Search ")
     # Uncomment the line below once your pipeline and param_grid are built!
-    # grid_search.fit(X_train, y_train)
-    # print(f"    Optimal Parameters Identified: {grid_search.best_params_}")
-    # print(f"    Generalization Score on Testing Partition: {grid_search.score(X_test, y_test)*100:.2f}%")
+    grid_search.fit(X_train, y_train)
+    print(f"    Optimal Parameters Identified: {grid_search.best_params_}")
+    print(f"    Generalization Score on Testing Partition: {grid_search.score(X_test, y_test)*100:.2f}%")
 
 
 # =========================================================================
@@ -171,12 +208,29 @@ print("\n Step 4: Comparing  OvO vs. OvR ")
 #          but use a OneVsRestClassifier() instead.
 
 # --- OvO Implementation ---
-pipeline_ovo = None 
-ovo_score = 0.0
+pipeline_ovo = Pipeline([
+    ('minmax', MinMaxScaler()),
+    ('features', all_features),
+    ('scaler', StandardScaler()),
+    ('classifier', OneVsOneClassifier(SVC(kernel='linear', random_state=42)))
+])
+
+# Entraînement et évaluation OvO
+pipeline_ovo.fit(X_train, y_train)
+ovo_score = pipeline_ovo.score(X_test, y_test)
+
 
 # --- OvR Implementation ---
-pipeline_ovr = None
-ovr_score = 0.0
+pipeline_ovr = Pipeline([
+    ('minmax', MinMaxScaler()),
+    ('features', all_features),
+    ('scaler', StandardScaler()),
+    ('classifier', OneVsRestClassifier(SVC(kernel='linear', random_state=42)))
+])
+
+# Entraînement et évaluation OvR
+pipeline_ovr.fit(X_train, y_train)
+ovr_score = pipeline_ovr.score(X_test, y_test)
 
 
 print(f"   One-vs-One (OvO) Strategy Score: {ovo_score*100:.2f}%")

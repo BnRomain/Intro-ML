@@ -256,7 +256,7 @@ def pad_random(resized_img, pad_width, multi_channel=False):
     return padded
 
 
-def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=15, sigma=2.0):
+def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=5, sigma=0.5):
     # Start with continuous (edge replication) padding so we have a good boundary starting point
     padded = np.pad(resized_img, pad_width, mode='edge').astype(float)
     
@@ -679,6 +679,36 @@ if __name__ == '__main__':
         ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2, f'{bar.get_width() * 100:.1f}%',
                 va='center', fontweight='bold')
     plt.savefig(os.path.join(FIGS, 'train_test_error.png'), bbox_inches='tight', dpi=150)
+    plt.close()
+
+    print("\n Step 7: Saving Random Image Preprocessing Comparisons")
+    # Pick 3 random indices from the database
+    random.seed(42)
+    sample_indices = random.sample(range(len(bw_dogs)), 3)
+    
+    fig, axes = plt.subplots(3, 3, figsize=(9, 9))
+    
+    for i, idx in enumerate(sample_indices):
+        orig = bw_dogs[idx]
+        img_cont = resize_and_pad(orig, target_size=TARGET_SIZE, pad_type='continuous')
+        img_blur = resize_and_pad(orig, target_size=TARGET_SIZE, pad_type='propagated_blur')
+        
+        # Original (before resizing/padding)
+        axes[i, 0].imshow(orig, cmap='gray')
+        axes[i, 0].set_title(f"Original {i+1} ({orig.shape[0]}x{orig.shape[1]})", fontsize=8)
+        axes[i, 0].axis('off')
+        
+        # Continuous Padding
+        axes[i, 1].imshow(img_cont, cmap='gray')
+        axes[i, 1].set_title(f"Continuous Padding", fontsize=8)
+        axes[i, 1].axis('off')
+        
+        # Propagated Blur Padding
+        axes[i, 2].imshow(img_blur, cmap='gray')
+        axes[i, 2].set_title(f"Propagated Blur", fontsize=8)
+        axes[i, 2].axis('off')
+        
+    plt.savefig(os.path.join(FIGS, 'preprocessing_comparaisonV2.png'), bbox_inches='tight', dpi=150)
     plt.close()
 
     print("\n" + "=" * 50)

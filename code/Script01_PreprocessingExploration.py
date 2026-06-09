@@ -256,7 +256,7 @@ def pad_random(resized_img, pad_width, multi_channel=False):
     return padded
 
 
-def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=5, sigma=0.5):
+def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=1, sigma=0.5):
     # Start with continuous (edge replication) padding so we have a good boundary starting point
     padded = np.pad(resized_img, pad_width, mode='edge').astype(float)
     

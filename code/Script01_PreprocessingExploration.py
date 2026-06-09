@@ -20,7 +20,7 @@ from sklearn.neighbors import KNeighborsClassifier
 # Image processing
 import skimage.io as io  # image I/O routines
 from skimage.transform import rescale, resize
-from skimage.filters import sobel, sobel_h, sobel_v
+from skimage.filters import sobel, sobel_h, sobel_v, gaussian
 
 # We will add some macros to facilitate work later on. This is often good practice...
 # Adapt here if you changed your workspace
@@ -227,6 +227,64 @@ def img_resize(img, target_size):
     return resize(img, target_size, anti_aliasing=True)
 
 
+def pad_random(resized_img, pad_width, multi_channel=False):
+    # Get shape
+    h_new, w_new = resized_img.shape[:2]
+    # Initialize padded image
+    padded = np.pad(resized_img, pad_width, mode='constant', constant_values=0)
+    
+    top, bottom_pad = pad_width[0]
+    left, right_pad = pad_width[1]
+    height, width = padded.shape[:2]
+    bottom = height - bottom_pad
+    right = width - right_pad
+    
+    mask = np.ones(padded.shape[:2], dtype=bool)
+    mask[top:bottom, left:right] = False
+    
+    num_samples = np.sum(mask)
+    if num_samples > 0:
+        flat_resized = resized_img.reshape(-1, resized_img.shape[-1]) if multi_channel else resized_img.ravel()
+        random_indices = np.random.choice(len(flat_resized), size=num_samples, replace=True)
+        random_pixels = flat_resized[random_indices]
+        
+        if multi_channel:
+            padded[mask, :] = random_pixels
+        else:
+            padded[mask] = random_pixels
+            
+    return padded
+
+
+def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=15, sigma=2.0):
+    # Start with continuous (edge replication) padding so we have a good boundary starting point
+    padded = np.pad(resized_img, pad_width, mode='edge').astype(float)
+    
+    top, bottom_pad = pad_width[0]
+    left, right_pad = pad_width[1]
+    height, width = padded.shape[:2]
+    bottom = height - bottom_pad
+    right = width - right_pad
+    
+    mask = np.ones(padded.shape[:2], dtype=bool)
+    mask[top:bottom, left:right] = False
+    
+    if multi_channel:
+        mask_3d = np.repeat(mask[:, :, np.newaxis], padded.shape[2], axis=2)
+    else:
+        mask_3d = mask
+        
+    # Iteratively apply gaussian blur to the padded region
+    for _ in range(iterations):
+        if multi_channel:
+            blurred = gaussian(padded, sigma=sigma, channel_axis=2)
+        else:
+            blurred = gaussian(padded, sigma=sigma)
+        padded[mask_3d] = blurred[mask_3d]
+        
+    return padded
+
+
 def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     """
     ========================================================================
@@ -238,6 +296,8 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
         - 'white': Pads with maximum intensity (1.0 for normalized images).
         - 'black': Pads with minimum intensity (0.0 for normalized images).
         - 'continuous': Pads with the closest pixel value in the original image.
+        - 'random': Pads with random pixels from the image.
+        - 'propagated_blur': Pads with blurred propagation of edge pixels.
     Other potential padding strategies (e.g., reflection, edge replication, mean pixel values...) can be implemented as extensions.
     """
 
@@ -264,13 +324,27 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
         ### STUDENT IMPLEMENTATION END ###
 
     resized_img = img_resize(img, (new_h, new_w))
-    output_shape = (height, width) + ((img.shape[2],) if multi_channel else ())
-    output_img = np.ones(output_shape) if pad_type.lower() == 'white' else np.zeros(output_shape)
-
-    if multi_channel:
-        output_img[top:bottom, left:right, :] = resized_img
+    
+    pad_h = (top, height - bottom)
+    pad_w = (left, width - right)
+    pad_width = (pad_h, pad_w, (0, 0)) if multi_channel else (pad_h, pad_w)
+    
+    pad_type_lower = pad_type.lower()
+    if pad_type_lower == 'white':
+        output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=1.0)
+    elif pad_type_lower == 'black':
+        output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=0.0)
+    elif pad_type_lower == 'continuous':
+        output_img = np.pad(resized_img, pad_width, mode='edge')
+    elif pad_type_lower in ['reflect', 'mirror', 'reflection']:
+        output_img = np.pad(resized_img, pad_width, mode='reflect')
+    elif pad_type_lower == 'random':
+        output_img = pad_random(resized_img, pad_width, multi_channel=multi_channel)
+    elif pad_type_lower == 'propagated_blur':
+        output_img = pad_propagated_blur(resized_img, pad_width, multi_channel=multi_channel)
     else:
-        output_img[top:bottom, left:right] = resized_img
+        # Fallback to manual black padding if unknown
+        output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=0.0)
 
     return output_img
 
@@ -467,6 +541,9 @@ def compute_hog(image, nb_height_cells=4, nb_width_cells=4, nb_bins=8):
 
 # =========================================================================
 if __name__ == '__main__':
+    # Options: 'white', 'black', 'continuous', 'reflect', 'random', 'propagated_blur'
+    CHOSEN_PAD_TYPE = 'continuous'
+
     print("Step 1: Loading Dataset")
 
     bw_imgs, bw_dogs, labels, label_names = read_and_crop_db(color=False)
@@ -487,7 +564,7 @@ if __name__ == '__main__':
             data_mtx[idx, 400:1500] += lbl * 0.1
     else:
         print(" Real dataset successfully resolved.")
-        resized_dogs = get_resized_db(bw_dogs, target_size=TARGET_SIZE, pad_type='white')
+        resized_dogs = get_resized_db(bw_dogs, target_size=TARGET_SIZE, pad_type=CHOSEN_PAD_TYPE)
         data_mtx = convert_ndarrays2data_matrix(resized_dogs)
 
     # Calculate Shannon Entropy
@@ -511,7 +588,7 @@ if __name__ == '__main__':
     asymmetric_test = np.zeros((20, 80))
     asymmetric_test[4:16, 10:70] = 0.8
     stretched_test = resize(asymmetric_test, TARGET_SIZE, anti_aliasing=True)
-    padded_test = resize_and_pad(asymmetric_test, target_size=TARGET_SIZE, pad_type='white')
+    padded_test = resize_and_pad(asymmetric_test, target_size=TARGET_SIZE, pad_type=CHOSEN_PAD_TYPE)
 
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(6, 3))
     ax0.imshow(stretched_test, cmap='gray')

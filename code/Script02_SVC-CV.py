@@ -84,10 +84,7 @@ class EdgeInfoPreprocessing(BaseEstimator, TransformerMixin):
         return self # HOG requires no training, so fit does nothing
         
     def transform(self, X):
-        # Multi-scale HOG: 4x4 cells (global shapes) and 8x8 cells (fine textures)
-        hog_4x4 = np.array([compute_hog(img.reshape(TARGET_SIZE), 4, 4, self.nb_bins) for img in X])
-        hog_8x8 = np.array([compute_hog(img.reshape(TARGET_SIZE), 8, 8, self.nb_bins) for img in X])
-        return np.hstack((hog_4x4, hog_8x8))
+        return np.array([compute_hog(img.reshape(TARGET_SIZE), self.nb_h_cells, self.nb_w_cells, self.nb_bins) for img in X])
 
 
 class PCAInfoPreprocessing(BaseEstimator, TransformerMixin):
@@ -158,8 +155,7 @@ pipeline_svc = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
-    ('select', SelectKBest(score_func=f_classif)),
-    ('classifier', SVC(kernel='linear', class_weight='balanced', random_state=42))
+    ('classifier', SVC(kernel='linear', random_state=42))
 ])
 
 
@@ -174,15 +170,13 @@ if pipeline_svc is not None:
     pipeline_svc.set_params(classifier__kernel='rbf')
     
     ### STUDENT IMPLEMENTATION START ###
-    # Grid Requirements with improvements:
+    # Grid search without selection:
     # - PCA components: [3, 5, 10]
-    # - SelectKBest k: [70, 120, 'all']
     # - SVC Cost C: [5, 10, 20]
     # - SVC Gamma: [0.005, 0.01, 0.02]
 
     param_grid = {
         'features__pca__n_components': [3, 5, 10],
-        'select__k': [70, 120, 'all'],
         'classifier__C': [5, 10, 20],
         'classifier__gamma': [0.005, 0.01, 0.02]
     }
@@ -216,7 +210,7 @@ pipeline_ovo_linear = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
-    ('classifier', OneVsOneClassifier(SVC(kernel='linear', class_weight='balanced', random_state=42)))
+    ('classifier', OneVsOneClassifier(SVC(kernel='linear', random_state=42)))
 ])
 pipeline_ovo_linear.fit(X_train, y_train)
 ovo_linear_score = pipeline_ovo_linear.score(X_test, y_test)
@@ -227,7 +221,7 @@ pipeline_ovr_linear = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
-    ('classifier', OneVsRestClassifier(SVC(kernel='linear', class_weight='balanced', random_state=42)))
+    ('classifier', OneVsRestClassifier(SVC(kernel='linear', random_state=42)))
 ])
 pipeline_ovr_linear.fit(X_train, y_train)
 ovr_linear_score = pipeline_ovr_linear.score(X_test, y_test)
@@ -237,7 +231,6 @@ ovr_linear_score = pipeline_ovr_linear.score(X_test, y_test)
 best_C = grid_search.best_params_['classifier__C']
 best_gamma = grid_search.best_params_['classifier__gamma']
 best_pca_n = grid_search.best_params_['features__pca__n_components']
-best_k = grid_search.best_params_['select__k']
 
 all_features_rbf = FeatureUnion([
     ('pca', PCAInfoPreprocessing(n_components=best_pca_n)),
@@ -248,8 +241,7 @@ pipeline_ovo_rbf = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features_rbf),
     ('scaler', StandardScaler()),
-    ('select', SelectKBest(score_func=f_classif, k=best_k)),
-    ('classifier', OneVsOneClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, class_weight='balanced', random_state=42)))
+    ('classifier', OneVsOneClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, random_state=42)))
 ])
 pipeline_ovo_rbf.fit(X_train, y_train)
 ovo_rbf_score = pipeline_ovo_rbf.score(X_test, y_test)
@@ -260,8 +252,7 @@ pipeline_ovr_rbf = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features_rbf),
     ('scaler', StandardScaler()),
-    ('select', SelectKBest(score_func=f_classif, k=best_k)),
-    ('classifier', OneVsRestClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, class_weight='balanced', random_state=42)))
+    ('classifier', OneVsRestClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, random_state=42)))
 ])
 pipeline_ovr_rbf.fit(X_train, y_train)
 ovr_rbf_score = pipeline_ovr_rbf.score(X_test, y_test)
@@ -269,6 +260,6 @@ ovr_rbf_score = pipeline_ovr_rbf.score(X_test, y_test)
 
 print(f"   One-vs-One (OvO) Linear Score: {ovo_linear_score*100:.2f}%")
 print(f"   One-vs-Rest (OvR) Linear Score: {ovr_linear_score*100:.2f}%")
-print(f"   One-vs-One (OvO) RBF Score (C={best_C}, gamma={best_gamma}, k={best_k}): {ovo_rbf_score*100:.2f}%")
-print(f"   One-vs-Rest (OvR) RBF Score (C={best_C}, gamma={best_gamma}, k={best_k}): {ovr_rbf_score*100:.2f}%")
+print(f"   One-vs-One (OvO) RBF Score (C={best_C}, gamma={best_gamma}): {ovo_rbf_score*100:.2f}%")
+print(f"   One-vs-Rest (OvR) RBF Score (C={best_C}, gamma={best_gamma}): {ovr_rbf_score*100:.2f}%")
 

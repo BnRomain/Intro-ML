@@ -207,32 +207,61 @@ print("\n Step 4: Comparing  OvO vs. OvR ")
 # TODO: 3. Repeat the exact same process for a new pipeline named 'pipeline_ovr', 
 #          but use a OneVsRestClassifier() instead.
 
-# --- OvO Implementation ---
-pipeline_ovo = Pipeline([
+# --- OvO Linear Strategy ---
+pipeline_ovo_linear = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
     ('classifier', OneVsOneClassifier(SVC(kernel='linear', random_state=42)))
 ])
-
-# Entraînement et évaluation OvO
-pipeline_ovo.fit(X_train, y_train)
-ovo_score = pipeline_ovo.score(X_test, y_test)
+pipeline_ovo_linear.fit(X_train, y_train)
+ovo_linear_score = pipeline_ovo_linear.score(X_test, y_test)
 
 
-# --- OvR Implementation ---
-pipeline_ovr = Pipeline([
+# --- OvR Linear Strategy ---
+pipeline_ovr_linear = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
     ('classifier', OneVsRestClassifier(SVC(kernel='linear', random_state=42)))
 ])
-
-# Entraînement et évaluation OvR
-pipeline_ovr.fit(X_train, y_train)
-ovr_score = pipeline_ovr.score(X_test, y_test)
+pipeline_ovr_linear.fit(X_train, y_train)
+ovr_linear_score = pipeline_ovr_linear.score(X_test, y_test)
 
 
-print(f"   One-vs-One (OvO) Strategy Score: {ovo_score*100:.2f}%")
-print(f"   One-vs-Rest (OvR) Strategy Score: {ovr_score*100:.2f}%")
+# --- OvO RBF Strategy (Tuned) ---
+best_C = grid_search.best_params_['classifier__C']
+best_gamma = grid_search.best_params_['classifier__gamma']
+best_pca_n = grid_search.best_params_['features__pca__n_components']
+
+all_features_rbf = FeatureUnion([
+    ('pca', PCAInfoPreprocessing(n_components=best_pca_n)),
+    ('edge', EdgeInfoPreprocessing())
+])
+
+pipeline_ovo_rbf = Pipeline([
+    ('minmax', MinMaxScaler()),
+    ('features', all_features_rbf),
+    ('scaler', StandardScaler()),
+    ('classifier', OneVsOneClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, random_state=42)))
+])
+pipeline_ovo_rbf.fit(X_train, y_train)
+ovo_rbf_score = pipeline_ovo_rbf.score(X_test, y_test)
+
+
+# --- OvR RBF Strategy (Tuned) ---
+pipeline_ovr_rbf = Pipeline([
+    ('minmax', MinMaxScaler()),
+    ('features', all_features_rbf),
+    ('scaler', StandardScaler()),
+    ('classifier', OneVsRestClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, random_state=42)))
+])
+pipeline_ovr_rbf.fit(X_train, y_train)
+ovr_rbf_score = pipeline_ovr_rbf.score(X_test, y_test)
+
+
+print(f"   One-vs-One (OvO) Linear Score: {ovo_linear_score*100:.2f}%")
+print(f"   One-vs-Rest (OvR) Linear Score: {ovr_linear_score*100:.2f}%")
+print(f"   One-vs-One (OvO) RBF Score (C={best_C}, gamma={best_gamma}): {ovo_rbf_score*100:.2f}%")
+print(f"   One-vs-Rest (OvR) RBF Score (C={best_C}, gamma={best_gamma}): {ovr_rbf_score*100:.2f}%")
 

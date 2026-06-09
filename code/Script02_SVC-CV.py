@@ -9,6 +9,8 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.decomposition import PCA
+
 
 # Ensure you have your utils.py file or these functions available in your environment
 try:
@@ -108,7 +110,7 @@ class PCAInfoPreprocessing(BaseEstimator, TransformerMixin):
             # TODO: 3. Isolate matching instance data slices from 'X', train separate PCA models,
             #          and append each fitted model to self.pca_per_class.
             X_classe = X[y == cl]
-            pca_modele = my_PCA(X_classe, n_components=self.n_components)
+            pca_modele = PCA(n_components=self.n_components)
             pca_modele.fit(X_classe)
             self.pca_per_class.append(pca_modele)
 
@@ -264,4 +266,7 @@ print(f"   One-vs-One (OvO) Linear Score: {ovo_linear_score*100:.2f}%")
 print(f"   One-vs-Rest (OvR) Linear Score: {ovr_linear_score*100:.2f}%")
 print(f"   One-vs-One (OvO) RBF Score (C={best_C}, gamma={best_gamma}): {ovo_rbf_score*100:.2f}%")
 print(f"   One-vs-Rest (OvR) RBF Score (C={best_C}, gamma={best_gamma}): {ovr_rbf_score*100:.2f}%")
+
+
+
 

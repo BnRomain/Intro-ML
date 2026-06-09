@@ -718,3 +718,21 @@ if __name__ == '__main__':
     print(f" Testing Error Rate (Generalization Loss):  {test_err * 100:.2f}%")
     print("=" * 50)
     print(f"All figures successfully saved inside the '{FIGS}/' folder.")
+
+    print("\n Step 8: Saving Cache Arrays for Script 02")
+    import pickle
+
+    # Sauvegarde des matrices d'images (data_train / data_test)
+    np.save("X_train_standard.npy", data_train)
+    np.save("X_test_standard.npy", data_test)
+
+    # Sauvegarde des étiquettes (labels)
+    np.save("y_train_standard.npy", y_train)
+    np.save("y_test_standard.npy", y_test)
+    np.save("labels.npy", labels)
+
+    # Sauvegarde du dictionnaire des noms de classes
+    with open("lbl_names.npy", "wb") as f:
+        pickle.dump(label_names, f)
+
+    print("   [SUCCESS] Fichiers .npy générés avec succès dans le dossier courant !")

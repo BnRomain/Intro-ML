@@ -542,7 +542,7 @@ def compute_hog(image, nb_height_cells=4, nb_width_cells=4, nb_bins=8):
 # =========================================================================
 if __name__ == '__main__':
     # Options: 'white', 'black', 'continuous', 'reflect', 'random', 'propagated_blur'
-    CHOSEN_PAD_TYPE = 'continuous'
+    CHOSEN_PAD_TYPE = 'propagated_blur'
 
     print("Step 1: Loading Dataset")
 
@@ -663,7 +663,7 @@ if __name__ == '__main__':
     X_train_scaled = scaler.fit_transform(X_train_combined)
     X_test_scaled = scaler.transform(X_test_combined)
 
-    knn = KNeighborsClassifier(n_neighbors=5)
+    knn = KNeighborsClassifier(n_neighbors=15, metric='cosine', weights='distance')
 
     # Update these variables if you disable the scaler above!
     knn.fit(X_train_scaled, y_train)

@@ -628,34 +628,101 @@ if __name__ == '__main__':
     print("\n Step 6: Standardizing Features & Optimizing Classifiers")
 
     # =========================================================================
-    # TASK 4: ANALYSIS
+    # TASK 6: ANALYSIS
     # =========================================================================
-    # TODO: First, run this pipeline exactly as written to see the baseline performance.
-    # TODO: Second, comment out the three lines immediately below this comment to
-    # bypass the StandardScaler completely.
-    # TODO: Third, pass the raw X_train_combined and X_test_combined matrices
-    # directly into the knn.fit() and knn.predict() functions instead of the scaled versions.
-    # Run the script again and observe what happens to the Testing Error Rate!
 
+    # --- Test 1: Effect of StandardScaler (k=5, PCA+HOG) ---
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train_combined)
     X_test_scaled = scaler.transform(X_test_combined)
 
-    knn = KNeighborsClassifier(n_neighbors=5)
+    knn_scaled = KNeighborsClassifier(n_neighbors=5)
+    knn_scaled.fit(X_train_scaled, y_train)
+    train_err_scaled = hamming_loss(y_train, knn_scaled.predict(X_train_scaled))
+    test_err_scaled = hamming_loss(y_test, knn_scaled.predict(X_test_scaled))
 
-    # Update these variables if you disable the scaler above!
-    knn.fit(X_train_scaled, y_train)
-    train_err = hamming_loss(y_train, knn.predict(X_train_scaled))
-    test_err = hamming_loss(y_test, knn.predict(X_test_scaled))
+    knn_raw = KNeighborsClassifier(n_neighbors=5)
+    knn_raw.fit(X_train_combined, y_train)
+    train_err_raw = hamming_loss(y_train, knn_raw.predict(X_train_combined))
+    test_err_raw = hamming_loss(y_test, knn_raw.predict(X_test_combined))
 
+    # --- Test 2: Bias-variance tradeoff — k sweep (scaled features) ---
+    k_range = range(1, 26)
+    train_errs_k, test_errs_k = [], []
+    for k in k_range:
+        knn_k = KNeighborsClassifier(n_neighbors=k)
+        knn_k.fit(X_train_scaled, y_train)
+        train_errs_k.append(hamming_loss(y_train, knn_k.predict(X_train_scaled)))
+        test_errs_k.append(hamming_loss(y_test, knn_k.predict(X_test_scaled)))
+
+    # --- Test 3: Feature ablation (k=5, scaled) ---
+    ablation_configs = {
+        'PCA only':  (X_train_pca, X_test_pca),
+        'HOG only':  (X_train_hog, X_test_hog),
+        'PCA + HOG': (X_train_combined, X_test_combined),
+    }
+    ablation_results = {}
+    for name, (Xtr, Xte) in ablation_configs.items():
+        sc = StandardScaler()
+        Xtr_s = sc.fit_transform(Xtr)
+        Xte_s = sc.transform(Xte)
+        knn_a = KNeighborsClassifier(n_neighbors=5)
+        knn_a.fit(Xtr_s, y_train)
+        ablation_results[name] = (
+            hamming_loss(y_train, knn_a.predict(Xtr_s)),
+            hamming_loss(y_test, knn_a.predict(Xte_s)),
+        )
+
+    # --- Plotting: 3 subplots side by side ---
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    w = 0.35
+
+    # Plot 1: scaler effect
+    x1 = np.arange(2)
+    axes[0].bar(x1 - w/2, [train_err_scaled, train_err_raw], w, label='Train', color='#a6a6a6', edgecolor='black')
+    axes[0].bar(x1 + w/2, [test_err_scaled, test_err_raw],  w, label='Test',  color='#c00000', edgecolor='black')
+    axes[0].set_xticks(x1)
+    axes[0].set_xticklabels(['With Scaler', 'Without Scaler'])
+    axes[0].set_ylabel('Hamming Loss')
+    axes[0].set_ylim(0, 1)
+    axes[0].set_title('Effect of StandardScaler (k=5)', fontweight='bold')
+    axes[0].legend()
+
+    # Plot 2: k sweep
+    axes[1].plot(list(k_range), train_errs_k, 'o-', color='#a6a6a6', label='Train')
+    axes[1].plot(list(k_range), test_errs_k,  'o-', color='#c00000', label='Test')
+    axes[1].set_xlabel('k (neighbors)')
+    axes[1].set_ylabel('Hamming Loss')
+    axes[1].set_title('Bias-Variance Tradeoff vs k', fontweight='bold')
+    axes[1].legend()
+    axes[1].grid(True, linestyle='--', alpha=0.5)
+
+    # Plot 3: feature ablation
+    names = list(ablation_results.keys())
+    x3 = np.arange(len(names))
+    axes[2].bar(x3 - w/2, [ablation_results[n][0] for n in names], w, label='Train', color='#a6a6a6', edgecolor='black')
+    axes[2].bar(x3 + w/2, [ablation_results[n][1] for n in names], w, label='Test',  color='#c00000', edgecolor='black')
+    axes[2].set_xticks(x3)
+    axes[2].set_xticklabels(names, rotation=10)
+    axes[2].set_ylabel('Hamming Loss')
+    axes[2].set_ylim(0, 1)
+    axes[2].set_title('Feature Comparison (k=5, scaled)', fontweight='bold')
+    axes[2].legend()
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIGS, 'task6_analysis.png'), bbox_inches='tight', dpi=150)
+    plt.close()
+
+    # Diagnostic bar chart (baseline = with scaler, k=5, PCA+HOG)
+    train_err, test_err = train_err_scaled, test_err_scaled
     fig, ax = plt.subplots(figsize=(6, 3))
-    ax.barh(['Training Set Error', 'Testing Generalization Loss'], [train_err, test_err], color=['#a6a6a6', '#c00000'],
-            height=0.4, edgecolor='black')
+    ax.barh(['Training Set Error', 'Testing Generalization Loss'], [train_err, test_err],
+            color=['#a6a6a6', '#c00000'], height=0.4, edgecolor='black')
     ax.set_xlim(0, max(train_err, test_err) + 0.1)
     ax.set_title("Model Generalization Diagnostic Gap", fontweight='bold')
     for bar in ax.patches:
-        ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2, f'{bar.get_width() * 100:.1f}%',
-                va='center', fontweight='bold')
+        ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2,
+                f'{bar.get_width() * 100:.1f}%', va='center', fontweight='bold')
     plt.savefig(os.path.join(FIGS, 'train_test_error.png'), bbox_inches='tight', dpi=150)
     plt.close()
 

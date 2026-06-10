@@ -336,7 +336,7 @@ def project_onto_PCA(n_components, pca_model, data):
     """
     ### STUDENT IMPLEMENTATION START ###
     data = pca_model.transform(data)
-    return data[:, 0:n_components]  # Remove this placeholder
+    return data[:, 0:n_components]
 
 
 def visualize_var_pcs(pca, fig_path=None):
@@ -685,7 +685,7 @@ if __name__ == '__main__':
 
         # Propagated Blur Padding
         axes[i, 2].imshow(img_blur, cmap='gray')
-        axes[i, 2].set_title(f"Propagated Blur", fontsize=8)
+        axes[i, 2].set_title(f"Padding Black", fontsize=8)
         axes[i, 2].axis('off')
 
     plt.savefig(os.path.join(FIGS, 'preprocessing_comparaisonV2.png'), bbox_inches='tight', dpi=150)

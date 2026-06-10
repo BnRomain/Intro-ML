@@ -9,7 +9,6 @@ import numpy as np
 # Visualisation
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from networkx import difference
 
 # Learning
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -28,15 +27,21 @@ from skimage.filters import sobel, sobel_h, sobel_v, gaussian
 ##########################################
 ## Useful Macros & Parameters
 ##########################################
-PATH_TO_DB = os.path.join('..', 'SmallDB')
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.join(SCRIPT_DIR, '..')
+
+PATH_TO_DB = os.path.join(PROJECT_DIR, 'SmallDB')
 IMG_DB = 'Images'
 ANNOT_DB = 'Annotation'
 IMG_FULL = os.path.join(PATH_TO_DB, IMG_DB)
 
 TARGET_SIZE = (64, 64)
 
-FIGS = 'figures'
+FIGS = os.path.join(PROJECT_DIR, 'figures')
 os.makedirs(FIGS, exist_ok=True)
+
+DATA_DIR = PROJECT_DIR
+os.makedirs(DATA_DIR, exist_ok=True)
 
 
 ##########################################
@@ -267,13 +272,28 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     ### STUDENT IMPLEMENTATION END ###
 
     resized_img = img_resize(img, (new_h, new_w))
+
     output_shape = (height, width) + ((img.shape[2],) if multi_channel else ())
     output_img = np.ones(output_shape) if pad_type.lower() == 'white' else np.zeros(output_shape)
 
     if multi_channel:
-        output_img[bottom:top, left:right, :] = resized_img
+        output_img[top:bottom, left:right, :] = resized_img
     else:
-        output_img[bottom:top, left:right] = resized_img
+        output_img[top:bottom, left:right] = resized_img
+
+
+    if pad_type.lower() == 'continuous':
+
+        pad_top = top
+        pad_bottom = height - bottom
+        pad_left = left
+        pad_right = width - right
+
+        paddings = ((pad_top, pad_bottom), (pad_left, pad_right))
+        if multi_channel:
+            paddings += ((0, 0),)
+
+        output_img = np.pad(resized_img, paddings, mode='edge')
 
     return output_img
 
@@ -541,7 +561,7 @@ if __name__ == '__main__':
     ax1.imshow(bw_dogs[0], cmap='gray')
     ax1.set_title("XML Isolated Target Region", fontsize=9)
     ax1.axis('off')
-    plt.savefig('figures/bounding_box_crop.png', bbox_inches='tight', dpi=150)
+    plt.savefig(os.path.join(FIGS, 'bounding_box_crop.png'), bbox_inches='tight', dpi=150)
     plt.close()
 
     print("\n Step 3: Saving Aspect-Preserving Scaling Validations")
@@ -683,16 +703,16 @@ if __name__ == '__main__':
     import pickle
 
     # Sauvegarde des matrices d'images (data_train / data_test)
-    np.save("X_train_standard.npy", data_train)
-    np.save("X_test_standard.npy", data_test)
+    np.save(os.path.join(DATA_DIR, "X_train_standard.npy"), data_train)
+    np.save(os.path.join(DATA_DIR, "X_test_standard.npy"), data_test)
 
     # Sauvegarde des étiquettes (labels)
-    np.save("y_train_standard.npy", y_train)
-    np.save("y_test_standard.npy", y_test)
-    np.save("labels.npy", labels)
+    np.save(os.path.join(DATA_DIR, "y_train_standard.npy"), y_train)
+    np.save(os.path.join(DATA_DIR, "y_test_standard.npy"), y_test)
+    np.save(os.path.join(DATA_DIR, "labels.npy"), labels)
 
     # Sauvegarde du dictionnaire des noms de classes
-    with open("lbl_names.npy", "wb") as f:
+    with open(os.path.join(DATA_DIR, "lbl_names.npy"), "wb") as f:
         pickle.dump(label_names, f)
 
     print("   [SUCCESS] Fichiers .npy générés avec succès dans le dossier courant !")

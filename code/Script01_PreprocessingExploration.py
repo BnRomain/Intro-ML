@@ -8,6 +8,7 @@ import numpy as np
 
 # Visualisation
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from networkx import difference
 
 # Learning
@@ -145,9 +146,9 @@ def plot_images(imgs, labels, label_names, nb_rows=3, nb_cols=4, fig_path=None, 
         for j in range(nb_cols):
             ax[i][j].imshow(imgs[rdm_indices[i * nb_rows + j]], cmap='gray')
             ax[i][j].set_title(label_names[labels[rdm_indices[i * nb_rows + j]]])
-
     if fig_path:
         plt.savefig(fig_path, bbox_inches='tight', dpi=150)
+        plt.show()
     plt.close()
 
     return rdm_indices, fig
@@ -321,30 +322,16 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
         top, bottom = (height - new_h) // 2, (height - new_h) // 2 + new_h
         left, right = 0, width
 
-        ### STUDENT IMPLEMENTATION END ###
+    ### STUDENT IMPLEMENTATION END ###
 
     resized_img = img_resize(img, (new_h, new_w))
+    output_shape = (height, width) + ((img.shape[2],) if multi_channel else ())
+    output_img = np.ones(output_shape) if pad_type.lower() == 'white' else np.zeros(output_shape)
 
-    pad_h = (top, height - bottom)
-    pad_w = (left, width - right)
-    pad_width = (pad_h, pad_w, (0, 0)) if multi_channel else (pad_h, pad_w)
-
-    pad_type_lower = pad_type.lower()
-    if pad_type_lower == 'white':
-        output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=1.0)
-    elif pad_type_lower == 'black':
-        output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=0.0)
-    elif pad_type_lower == 'continuous':
-        output_img = np.pad(resized_img, pad_width, mode='edge')
-    elif pad_type_lower in ['reflect', 'mirror', 'reflection']:
-        output_img = np.pad(resized_img, pad_width, mode='reflect')
-    elif pad_type_lower == 'random':
-        output_img = pad_random(resized_img, pad_width, multi_channel=multi_channel)
-    elif pad_type_lower == 'propagated_blur':
-        output_img = pad_propagated_blur(resized_img, pad_width, multi_channel=multi_channel)
+    if multi_channel:
+        output_img[bottom:top, left:right, :] = resized_img
     else:
-        # Fallback to manual black padding if unknown
-        output_img = np.pad(resized_img, pad_width, mode='constant', constant_values=0.0)
+        output_img[bottom:top, left:right] = resized_img
 
     return output_img
 
@@ -430,17 +417,48 @@ def plot_whole_db_on_2d(pca, data_mtx, fig_path=None):
     ========================================================================
     Projects the entire dataset onto the first two principal components and visualizes it as a scatter plot, colored by class labels.
     """
+
+
     projected_data = project_onto_PCA(2, pca, data_mtx)
 
-    fig, ax = plt.subplots()
-    ax.scatter(projected_data[:, 0], projected_data[:, 1], c=labels, cmap='tab10', alpha=0.7)
+    fig, ax = plt.subplots(figsize=(8, 6))  # Légèrement agrandi pour la colorbar
+
+    # 1. Déterminer dynamiquement le nombre de classes uniques
+    unique_labels = np.unique(labels)
+    nb_classes = len(unique_labels)
+
+    # 2. On échantillonne exactement le nombre de couleurs nécessaires (ex: 6 au lieu de 10)
+    cmap = plt.get_cmap('tab10', nb_classes)
+
+    # 3. On crée des frontières discrètes pour centrer les tics (-0.5, 0.5, 1.5...)
+    boundaries = np.arange(nb_classes + 1) - 0.5
+    norm = mcolors.BoundaryNorm(boundaries, cmap.N)
+
+    # 4. On passe le 'cmap' et le 'norm' au scatter plot
+    scatter = ax.scatter(
+        projected_data[:, 0],
+        projected_data[:, 1],
+        c=labels,
+        cmap=cmap,
+        norm=norm,
+        alpha=0.7,
+        edgecolors='none'
+    )
+
     ax.set_xlabel("Principal Component 1")
     ax.set_ylabel("Principal Component 2")
     ax.set_title("PCA 2D Projection", fontweight='bold')
-    plt.colorbar(ax.collections[0], label='Class')
+    ax.grid(True, linestyle='--', alpha=0.5)
+
+    # 5. On configure la colorbar pour afficher un tic propre au centre de chaque bloc
+    cbar = fig.colorbar(scatter, ax=ax, ticks=unique_labels)
+    cbar.set_label('Class')
+
     plt.tight_layout()
 
-    # Remark: You may also try a 3d scatter plot using the first three principal components, but this is not mandatory.
+    if fig_path:
+        plt.savefig(fig_path, bbox_inches='tight', dpi=150)
+        plt.close()
 
     return fig
 

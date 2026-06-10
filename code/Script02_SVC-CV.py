@@ -11,31 +11,46 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 
+# 1. Dynamically resolve paths exactly like Script 01
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, '..')  # Points to the parent 'Intro-ML' directory
 
-# Ensure you have your utils.py file or these functions available in your environment
+OUTPUT_DIR = os.path.join(DATA_DIR, 'folder_code2')
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Define a local helper to load pickled files safely
+def load_dict(filepath):
+    with open(filepath, "rb") as f:
+        return pickle.load(f)
+
+# 2. Safely import real pipeline utilities from Script 01 (excluding the missing load_dict)
 try:
-    from Script01_PreprocessingExploration import compute_hog, my_PCA, load_dict, TARGET_SIZE
+    from Script01_PreprocessingExploration import compute_hog, my_PCA, TARGET_SIZE
 except ImportError:
-    # Safe defaults if utils are missing during initial setup
+    # Safe defaults only if the script cannot find Script01 at all
     TARGET_SIZE = (64, 64)
     def my_PCA(data, n_components=5): pass
     def compute_hog(image, nb_h_cells, nb_w_cells, nb_bins): return np.zeros(nb_h_cells*nb_w_cells*nb_bins)
-    def load_dict(f): return {0: 'Chihuahua', 1: 'Pug', 2: 'Malamute', 3: 'Beagle'}
 
-OUTPUT_DIR = os.path.join('..', 'folder_code2')
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Define full absolute paths to cached arrays
+X_train_path = os.path.join(DATA_DIR, "X_train_standard.npy")
+X_test_path = os.path.join(DATA_DIR, "X_test_standard.npy")
+y_train_path = os.path.join(DATA_DIR, "y_train_standard.npy")
+y_test_path = os.path.join(DATA_DIR, "y_test_standard.npy")
+lbl_names_path = os.path.join(DATA_DIR, "lbl_names.npy")
+labels_path = os.path.join(DATA_DIR, "labels.npy")
 
-
-# Define or reload precalculated vector states from Lab 1
-if os.path.exists("X_train_standard.npy"):
-    X_train = np.load("X_train_standard.npy")
-    X_test = np.load("X_test_standard.npy")
-    y_train = np.load("y_train_standard.npy")
-    y_test = np.load("y_test_standard.npy")
-    label_names = load_dict("lbl_names.npy")
-    labels = np.load("labels.npy")
+# 3. Define or reload precalculated vector states from Lab 1 using robust paths
+if os.path.exists(X_train_path):
+    X_train = np.load(X_train_path)
+    X_test = np.load(X_test_path)
+    y_train = np.load(y_train_path)
+    y_test = np.load(y_test_path)
+    label_names = load_dict(lbl_names_path)
+    labels = np.load(labels_path)
 else:
-    raise FileNotFoundError(" Cache arrays not found. Run the Lab 1 setup script to generate the design matrices.")
+    raise FileNotFoundError(f"Cache arrays not found at: {os.path.abspath(X_train_path)}\n"
+                            f"Please run Script01_PreprocessingExploration.py first to generate them.")
 
 
 # =========================================================================

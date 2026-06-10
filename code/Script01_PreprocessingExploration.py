@@ -228,64 +228,6 @@ def img_resize(img, target_size):
     return resize(img, target_size, anti_aliasing=True)
 
 
-def pad_random(resized_img, pad_width, multi_channel=False):
-    # Get shape
-    h_new, w_new = resized_img.shape[:2]
-    # Initialize padded image
-    padded = np.pad(resized_img, pad_width, mode='constant', constant_values=0)
-
-    top, bottom_pad = pad_width[0]
-    left, right_pad = pad_width[1]
-    height, width = padded.shape[:2]
-    bottom = height - bottom_pad
-    right = width - right_pad
-
-    mask = np.ones(padded.shape[:2], dtype=bool)
-    mask[top:bottom, left:right] = False
-
-    num_samples = np.sum(mask)
-    if num_samples > 0:
-        flat_resized = resized_img.reshape(-1, resized_img.shape[-1]) if multi_channel else resized_img.ravel()
-        random_indices = np.random.choice(len(flat_resized), size=num_samples, replace=True)
-        random_pixels = flat_resized[random_indices]
-
-        if multi_channel:
-            padded[mask, :] = random_pixels
-        else:
-            padded[mask] = random_pixels
-
-    return padded
-
-
-def pad_propagated_blur(resized_img, pad_width, multi_channel=False, iterations=5, sigma=0.5):
-    # Start with continuous (edge replication) padding so we have a good boundary starting point
-    padded = np.pad(resized_img, pad_width, mode='edge').astype(float)
-
-    top, bottom_pad = pad_width[0]
-    left, right_pad = pad_width[1]
-    height, width = padded.shape[:2]
-    bottom = height - bottom_pad
-    right = width - right_pad
-
-    mask = np.ones(padded.shape[:2], dtype=bool)
-    mask[top:bottom, left:right] = False
-
-    if multi_channel:
-        mask_3d = np.repeat(mask[:, :, np.newaxis], padded.shape[2], axis=2)
-    else:
-        mask_3d = mask
-
-    # Iteratively apply gaussian blur to the padded region
-    for _ in range(iterations):
-        if multi_channel:
-            blurred = gaussian(padded, sigma=sigma, channel_axis=2)
-        else:
-            blurred = gaussian(padded, sigma=sigma)
-        padded[mask_3d] = blurred[mask_3d]
-
-    return padded
-
-
 def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     """
     ========================================================================

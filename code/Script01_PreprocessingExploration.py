@@ -35,7 +35,7 @@ IMG_DB = 'Images'
 ANNOT_DB = 'Annotation'
 IMG_FULL = os.path.join(PATH_TO_DB, IMG_DB)
 
-TARGET_SIZE = (64, 64)
+TARGET_SIZE = (256, 256)
 
 FIGS = os.path.join(PROJECT_DIR, 'figures')
 os.makedirs(FIGS, exist_ok=True)
@@ -432,21 +432,19 @@ def display_pca_approx(img, pca, target_size=TARGET_SIZE, fig_path=None):
     ========================================================================
     For a given input image, reconstructs approximations using increasing numbers of principal components (k) and visualizes the original and reconstructed images side by side, along with their respective L2 reconstruction errors.
     """
-    original_image = img.reshape(target_size[0], target_size[1])  # Reshape back to targeted size
+    display_image = img.reshape(target_size[0], target_size[1])
 
     fig = plt.figure(figsize=(15, 15))
     plt.subplot(4, 4, 1)
-    plt.imshow(original_image, cmap='gray')
+    plt.imshow(display_image, cmap='gray')
     plt.title("Original image")
     plt.axis('off')
 
     step = (target_size[0] + target_size[1]) // 2
 
-    k_values = [10, 50, 110, 210, 310, 410, 510, 610, 710, 810, 910, 1010, 1210, 1310, 1410]
+    k_values = [10, 110, 210, 310, 410, 510, 610, 710, 810, 910, 1010, 1110, 1210, 1310, 1410]
 
     for idx, k in enumerate(k_values[:15]):
-        if k > pca.n_components_:
-            break
 
         img_flat = img.reshape(1, -1)
         pca_proj = pca.transform(img_flat)[:, :k]

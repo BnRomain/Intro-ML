@@ -27,7 +27,7 @@ Juin 2026}
 \maketitle
 
 \begin{abstract}
-\noindent Dans ce projet, on cherche à reconnaître la race d'un chien à partir d'une photo. On travaille sur un petit jeu de données tiré de PASCAL VOC qui contient six races. On commence par préparer les images (découpage autour du chien, mise à la même taille), puis on en extrait des caractéristiques avec deux méthodes : la PCA et le HOG. Enfin, on teste deux classifieurs, le kNN et le SVM. On regarde aussi l'effet de la normalisation des données et le compromis entre un modèle trop simple et un modèle trop complexe. Au final, on plafonne autour de $55\%$ de bonnes réponses sur les images de test, surtout parce que les races se ressemblent beaucoup une fois transformées en caractéristiques. On termine en proposant une autre approche, le transfer learning, qui devrait faire bien mieux.
+\noindent Dans ce projet, on cherche à reconnaître la race d'un chien à partir d'une photo. On travaille sur un petit jeu de données tiré de PASCAL VOC qui contient six races. On commence par préparer les images (découpage autour du chien, mise à la même taille), puis on en extrait des caractéristiques avec deux méthodes : la PCA et le HOG. Enfin, on teste deux classifieurs, le kNN et le SVM. On regarde aussi l'effet de la normalisation des données et le compromis entre un modèle trop simple et un modèle trop complexe. Au final, on plafonne autour de $55\%$ de bonnes réponses sur les images de test, surtout parce que les races se ressemblent beaucoup une fois transformées en caractéristiques. On termine avec une autre approche, le transfer learning à partir de VGG16, qui fait bondir le score à $98\%$.
 \end{abstract}
 
 \section{Introduction et premier regard sur les données}
@@ -204,10 +204,17 @@ Pour faire mieux, on propose d'utiliser un réseau de neurones déjà entraîné
 \item on ajoute juste une petite partie à entraîner sur nos six races ;
 \item on donne les images en couleur, à la taille attendue par le réseau ($224\times224$ pour VGG16).
 \end{itemize}
-On a déjà écrit le code pour cette approche, mais on n'a pas pu la lancer faute de carte graphique assez puissante dans le temps du projet. C'est quand même la suite la plus prometteuse : sur ce genre de tâche, le transfer learning fait souvent gagner plusieurs dizaines de points par rapport aux méthodes classiques.
+On a implémenté cette approche avec VGG16 (couches gelées, une tête à $256$ neurones puis une couche de sortie à $6$ classes, entraînée sur $8$ époques). Le résultat est sans appel : on passe d'environ $57\%$ avec PCA+HOG à \textbf{$98\%$ de bonnes réponses} sur le test, soit seulement $5$ erreurs sur $251$ images. La matrice de confusion (Figure~\ref{fig:cm_vgg16}) est quasi diagonale, alors que celles du kNN et du SVM restaient très confuses. Cela confirme notre diagnostic : le problème n'était pas le classifieur mais les caractéristiques, et celles d'un réseau pré-entraîné sur des millions d'images séparent les races sans difficulté. À noter que ces six races font partie des classes d'ImageNet, ce qui joue clairement en faveur de VGG16.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{confusion_matrix_vgg16.png}
+\caption{Matrice de confusion du transfer learning (VGG16, couches gelées). La diagonale est presque parfaite : $98\%$ de bonnes réponses, contre $\sim57\%$ pour les méthodes classiques.}
+\label{fig:cm_vgg16}
+\end{figure}
 
 \section{Conclusion}
 
-On a construit une chaîne complète de classification d'images, du nettoyage des photos jusqu'à l'évaluation, en passant par le calcul des caractéristiques (PCA, HOG) et deux classifieurs (kNN et SVM). Ce travail nous a fait toucher du doigt plusieurs idées importantes : l'utilité de normaliser les données, le compromis entre un modèle trop simple et trop complexe, l'intérêt d'un découpage équilibré, et surtout le fait que la qualité des caractéristiques fixe la limite de ce qu'on peut atteindre. Ici, les méthodes classiques bloquent vers $57\%$ parce que les races se ressemblent trop une fois transformées. Le transfer learning à partir de réseaux déjà entraînés est la suite logique pour dépasser ce plafond.
+On a construit une chaîne complète de classification d'images, du nettoyage des photos jusqu'à l'évaluation, en passant par le calcul des caractéristiques (PCA, HOG) et deux classifieurs (kNN et SVM). Ce travail nous a fait toucher du doigt plusieurs idées importantes : l'utilité de normaliser les données, le compromis entre un modèle trop simple et trop complexe, l'intérêt d'un découpage équilibré, et surtout le fait que la qualité des caractéristiques fixe la limite de ce qu'on peut atteindre. Ici, les méthodes classiques bloquent vers $57\%$ parce que les races se ressemblent trop une fois transformées. Le transfer learning à partir de VGG16 confirme ce diagnostic en atteignant $98\%$ : en remplaçant nos caractéristiques par celles d'un réseau pré-entraîné, on dépasse largement le plafond des méthodes classiques.
 
 \end{document}

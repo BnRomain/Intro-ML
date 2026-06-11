@@ -299,20 +299,21 @@ bullets(s, Inches(0.9), Inches(3.6), Inches(11.4), Inches(3), [
     ("Aucun réglage de k, C ou γ ne crée une séparation qui n'existe pas", PRESENTERS["Zouhair"]),
 ], size=19, gap=16)
 
-# 14. Transfer learning
-s = content_slide("La suite : transfer learning", "Zouhair", "5 · Limites")
-bullets(s, Inches(0.6), Inches(1.7), Inches(7.2), Inches(4), [
-    ("Réseau pré-entraîné sur des millions\nd'images (VGG16, Xception)", PRESENTERS["Zouhair"]),
-    ("Il calcule les caractéristiques\nà la place de PCA / HOG", PRESENTERS["Zouhair"]),
-    ("On gèle les couches, on ajoute une\npetite tête entraînée sur nos 6 races", PRESENTERS["Zouhair"]),
-    ("Images couleur, 224×224 (VGG16)", PRESENTERS["Zouhair"]),
-    ("Code écrit, pas lancé (pas de GPU\nassez puissant dans le temps imparti)", PRESENTERS["Zouhair"]),
-], size=18, gap=14)
-rect(s, Inches(8.2), Inches(2.3), Inches(4.5), Inches(2.7), NAVY)
-txt(s, Inches(8.5), Inches(2.7), Inches(3.9), Inches(2), "Gain attendu", 18,
-    ORANGE, bold=True)
-txt(s, Inches(8.5), Inches(3.3), Inches(3.9), Inches(1.6),
-    "+ plusieurs dizaines\nde points\nvs méthodes classiques", 20, WHITE)
+# 14. Transfer learning — résultat
+s = content_slide("Transfer learning : on fait sauter le plafond", "Zouhair", "5 · Limites")
+bullets(s, Inches(0.6), Inches(1.55), Inches(6.0), Inches(3.2), [
+    ("VGG16 pré-entraîné sur des millions\nd'images, couches gelées", PRESENTERS["Zouhair"]),
+    ("Il remplace PCA / HOG pour calculer\nles caractéristiques", PRESENTERS["Zouhair"]),
+    ("On ajoute une petite tête entraînée\nsur nos 6 races (images couleur 224×224)", PRESENTERS["Zouhair"]),
+], size=16, gap=12)
+# banner 57 -> 98
+rect(s, Inches(0.6), Inches(5.0), Inches(6.0), Inches(1.5), NAVY)
+txt(s, Inches(0.7), Inches(5.18), Inches(5.8), Inches(0.5),
+    "PCA+HOG  →  VGG16", 16, ORANGE, bold=True, align=PP_ALIGN.CENTER)
+txt(s, Inches(0.7), Inches(5.6), Inches(5.8), Inches(0.8),
+    "57 %   →   98 %", 30, WHITE, bold=True, align=PP_ALIGN.CENTER)
+fitted(s, fig("confusion_matrix_vgg16.png"), Inches(6.9), Inches(1.5),
+       Inches(6.0), Inches(5.3))
 
 # 15. Conclusion
 s = prs.slides.add_slide(BLANK)
@@ -323,8 +324,8 @@ txt(s, Inches(1.0), Inches(0.9), Inches(11.3), Inches(0.8), "Conclusion",
 bullets_items = [
     "Chaîne complète : nettoyage → caractéristiques → classification → évaluation",
     "Idées clés : normalisation, compromis biais-variance, découpage équilibré",
-    "La qualité des caractéristiques fixe la limite : ici ~57 %",
-    "Transfer learning = suite logique pour dépasser ce plafond",
+    "La qualité des caractéristiques fixe la limite : ~57 % en classique",
+    "Transfer learning (VGG16) confirme le diagnostic : 98 %",
 ]
 tb = s.shapes.add_textbox(Inches(1.6), Inches(2.3), Inches(10.1), Inches(3.5))
 tf = tb.text_frame; tf.word_wrap = True

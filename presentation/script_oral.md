@@ -69,12 +69,12 @@ Le tableau compare les stratégies un-contre-un et un-contre-tous, en linéaire 
 « La vraie question : kNN comme SVM tournent autour de 55 à 58 %. Pourquoi ?
 Ce n'est ni le classifieur ni le réglage. Le problème, ce sont les caractéristiques. La PCA et le HOG décrivent des choses trop générales, alors que les races se jouent sur des détails fins : la forme des oreilles, le museau, le poil. On le voyait déjà sur le scatter PCA du début. Aucun réglage de k, de C ou de gamma ne peut créer une séparation qui n'existe pas dans les données. »
 
-### Slide 14 — Transfer learning *(0:40)*
-« D'où la suite logique : le transfer learning. On utilise un réseau déjà entraîné sur des millions d'images, type VGG16 ou Xception, pour calculer les caractéristiques à notre place, à la place de la PCA et du HOG. On gèle les couches du réseau et on entraîne juste une petite tête sur nos six races, avec les images en couleur en 224 par 224.
-On a écrit le code mais on n'a pas pu le lancer, faute de GPU assez puissant dans le temps du projet. Sur ce type de tâche, ça fait souvent gagner plusieurs dizaines de points. »
+### Slide 14 — Transfer learning *(0:50)*
+« D'où la solution : le transfer learning. On utilise VGG16, un réseau déjà entraîné sur des millions d'images, pour calculer les caractéristiques à la place de la PCA et du HOG. On gèle ses couches et on entraîne juste une petite tête sur nos six races, avec les images en couleur en 224 par 224.
+Et le résultat est sans appel : on passe de 57 % à 98 % de bonnes réponses, seulement 5 erreurs sur 251 images. La matrice de confusion est quasi diagonale, alors que celles du kNN et du SVM étaient très confuses. Ça confirme tout notre propos : le problème, c'était les caractéristiques, pas le classifieur. À noter quand même que ces six races font partie des classes d'ImageNet, ce qui aide clairement VGG16. »
 
 ### Slide 15 — Conclusion *(0:30)*
-« Pour conclure : on a construit une chaîne complète, du nettoyage des photos à l'évaluation, en passant par les caractéristiques et deux classifieurs. On retient l'utilité de normaliser, le compromis biais-variance, l'importance d'un découpage équilibré, et surtout que la qualité des caractéristiques fixe la limite : ici environ 57 %. Le transfer learning est la suite naturelle pour dépasser ce plafond. Merci de votre attention, on est prêts pour vos questions. »
+« Pour conclure : on a construit une chaîne complète, du nettoyage des photos à l'évaluation, en passant par les caractéristiques et deux classifieurs. On retient l'utilité de normaliser, le compromis biais-variance, l'importance d'un découpage équilibré, et surtout que la qualité des caractéristiques fixe la limite : environ 57 % en classique, mais 98 % avec le transfer learning. C'est la vraie leçon du projet : changer de caractéristiques compte plus que changer de classifieur. Merci de votre attention, on est prêts pour vos questions. »
 
 ---
 
@@ -86,4 +86,5 @@ On a écrit le code mais on n'a pas pu le lancer, faute de GPU assez puissant da
 - **Pourquoi RBF > linéaire ?** Les classes ne sont pas linéairement séparables (cf. scatter PCA) ; le noyau RBF gère des frontières courbes.
 - **OvO vs OvR ?** OvO entraîne un SVM par paire de classes, OvR un SVM par classe contre le reste. Ici OvR RBF gagne de peu (57,77 %).
 - **Pourquoi pas plus d'axes PCA / un autre noyau ?** On a fait une GridSearch ; au-delà ça ne décolle pas, parce que la limite vient des caractéristiques, pas du modèle.
-- **Transfer learning, pourquoi ça marcherait ?** Les caractéristiques d'un réseau pré-entraîné encodent des détails visuels appris sur des millions d'images, bien plus discriminants que PCA/HOG pour des races proches.
+- **Transfer learning, pourquoi 98 % ?** Les caractéristiques d'un réseau pré-entraîné encodent des détails visuels appris sur des millions d'images, bien plus discriminants que PCA/HOG. Et ces six races sont des classes d'ImageNet, donc VGG16 les avait déjà apprises, ce qui explique un score aussi haut.
+- **N'est-ce pas du surapprentissage / test = validation ?** On évalue sur le test stratifié non vu à l'entraînement ; le val_set du fit est ce même test, donc le 98 % est bien une accuracy de test. La tête entraînée est petite (Dropout 0.5), peu de risque de surapprentissage.

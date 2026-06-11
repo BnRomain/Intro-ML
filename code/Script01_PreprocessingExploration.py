@@ -128,7 +128,7 @@ def plot_barplot(labels, label_names, fig_path=None):
     ax.set_xticks(l)
     ax.set_xticklabels([label_names[_l] for _l in l], rotation=15, ha='right')
     ax.set_ylabel("Sample Count")
-    ax.set_title("BigDB Class Balance Evaluation", fontweight='bold')
+    ax.set_title("SmallDB Class Balance Evaluation", fontweight='bold')
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     if fig_path:
         plt.savefig(fig_path, bbox_inches='tight', dpi=150)

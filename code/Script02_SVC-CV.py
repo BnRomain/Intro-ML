@@ -91,7 +91,7 @@ print(f"   - Train/Test Resemblance (Cosine Similarity): {similarity_score:.6f}"
 # that inherit from BaseEstimator and TransformerMixin.
 
 class EdgeInfoPreprocessing(BaseEstimator, TransformerMixin):
-    def __init__(self, nb_h_cells=4, nb_w_cells=4, nb_bins=8):
+    def __init__(self, nb_h_cells=16, nb_w_cells=16, nb_bins=9):
         self.nb_h_cells = nb_h_cells
         self.nb_w_cells = nb_w_cells
         self.nb_bins = nb_bins
@@ -193,9 +193,9 @@ if pipeline_svc is not None:
     # - SVC Gamma: [0.01, 0.1]
 
     param_grid = {
-        'features__pca__n_components': [5, 10],
-        'classifier__C': [0.1, 1, 10],
-        'classifier__gamma': [0.01, 0.1]
+        'features__pca__n_components': [5, 10, 15],
+        'classifier__C': [1, 5, 10, 20],
+        'classifier__gamma': ['scale', 0.0001, 0.0005, 0.001]
     }
     # Fill with proper keys (e.g., 'features__pca__n_components') and value lists
     
@@ -284,4 +284,28 @@ print(f"   One-vs-Rest (OvR) RBF Score (C={best_C}, gamma={best_gamma}): {ovr_rb
 
 
 
+# TASK 6: Matrice de confusion
+print("\n Step 5: Calculating and Visualizing the Confusion Matrix...")
+
+# 1. Sélection du modèle à évaluer (ici, le modèle OvO avec kernel RBF)
+best_model = pipeline_ovo_rbf
+model_name = "OvO RBF (Tuned)"
+
+y_pred = best_model.predict(X_test)
+
+cm = confusion_matrix(y_test, y_pred)
+
+fig, ax = plt.subplots(figsize=(10, 8))
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=label_names)
+
+disp.plot(cmap=plt.cm.Blues, ax=ax, xticks_rotation='vertical')
+
+plt.title(f"Matrice de Confusion - {model_name}")
+plt.tight_layout() # Ajuste les marges pour ne pas couper les labels
+
+cm_output_path = os.path.join(OUTPUT_DIR, "confusion_matrix.png")
+plt.savefig(cm_output_path)
+print(f"   -> Matrice de confusion sauvegardée avec succès dans : {cm_output_path}")
+
+plt.show()
 

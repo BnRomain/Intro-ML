@@ -35,7 +35,7 @@ IMG_DB = 'Images'
 ANNOT_DB = 'Annotation'
 IMG_FULL = os.path.join(PATH_TO_DB, IMG_DB)
 
-TARGET_SIZE = (256, 256)
+TARGET_SIZE = (64, 64)
 
 FIGS = os.path.join(PROJECT_DIR, 'figures')
 os.makedirs(FIGS, exist_ok=True)
@@ -128,7 +128,7 @@ def plot_barplot(labels, label_names, fig_path=None):
     ax.set_xticks(l)
     ax.set_xticklabels([label_names[_l] for _l in l], rotation=15, ha='right')
     ax.set_ylabel("Sample Count")
-    ax.set_title("SmallDB Class Balance Evaluation", fontweight='bold')
+    ax.set_title("BigDB Class Balance Evaluation", fontweight='bold')
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     if fig_path:
         plt.savefig(fig_path, bbox_inches='tight', dpi=150)
@@ -527,7 +527,7 @@ if __name__ == '__main__':
     bw_imgs, bw_dogs, labels, label_names = read_and_crop_db(color=False)
 
     if bw_imgs is None:
-        print(" SmallDB not found.")
+        print(" BigDB not found.")
         label_names = {0: 'Chihuahua', 1: 'Pug', 2: 'Malamute', 3: 'Beagle'}
         labels = [0] * 152 + [1] * 250 + [2] * 300 + [3] * 300
 
@@ -724,6 +724,34 @@ if __name__ == '__main__':
         ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2,
                 f'{bar.get_width() * 100:.1f}%', va='center', fontweight='bold')
     plt.savefig(os.path.join(FIGS, 'train_test_error.png'), bbox_inches='tight', dpi=150)
+    plt.close()
+
+
+    # CONFUSION MATRIX FOR KNN
+    print("     Calculating and Visualizing the Confusion Matrix for KNN")
+
+    # 1. Générer les prédictions avec le modèle de référence (knn_scaled avec k=5)
+    y_pred_knn = knn_scaled.predict(X_test_scaled)
+
+    # 2. Calculer la matrice de confusion
+    cm_knn = confusion_matrix(y_test, y_pred_knn)
+
+    # 3. Récupérer les noms des classes dans l'ordre exact attendu par le classifieur
+    display_labels_knn = [label_names[c] for c in knn_scaled.classes_]
+
+    # 4. Configurer la visualisation
+    fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
+    disp_knn = ConfusionMatrixDisplay(confusion_matrix=cm_knn, display_labels=display_labels_knn)
+
+    # On utilise la palette de couleurs "Reds" pour rester cohérent avec vos autres graphiques
+    disp_knn.plot(cmap=plt.cm.Reds, ax=ax_cm, xticks_rotation=45)
+
+    plt.title("Matrice de Confusion pour KNN (k=5, PCA+HOG, Scaled)", fontweight='bold')
+    plt.tight_layout()
+
+    # 5. Sauvegarder la figure dans le dossier FIGS
+    cm_output_path = os.path.join(FIGS, 'confusion_matrix_knn.png')
+    plt.savefig(cm_output_path, bbox_inches='tight', dpi=150)
     plt.close()
 
     print("\n Step 7: Saving Random Image Preprocessing Comparisons")

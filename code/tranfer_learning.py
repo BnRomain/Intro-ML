@@ -50,6 +50,16 @@ CHOSEN_PAD_TYPE = 'continuous'
 print(f"Step 1: Loading dataset in COLOR (RGB) via Script01 utilities...")
 _, bw_dogs, labels, label_names = read_and_crop_db(color=True)
 
+cleaned_dogs = []
+for img in bw_dogs:
+    if img.ndim == 2:  # Si l'image est par hasard en niveaux de gris (H, W) -> (H, W, 3)
+        img = np.stack([img] * 3, axis=-1)
+    elif img.shape[2] == 4:  # Si l'image a un canal Alpha
+        # (RGBA) -> on ne garde que (H, W, 3)
+        img = img[:, :, :3]
+    cleaned_dogs.append(img)
+bw_dogs = cleaned_dogs
+
 if bw_dogs is None or len(bw_dogs) == 0:
     print(" [ERREUR] Base de données introuvable. Génération de données factices pour le test...")
     # Simulation de données au format TensorFlow si SmallDB est absent

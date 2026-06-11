@@ -15,8 +15,8 @@ from sklearn.decomposition import PCA
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, '..')  # Points to the parent 'Intro-ML' directory
 
-OUTPUT_DIR = os.path.join(DATA_DIR, 'folder_code2')
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+FIGS = os.path.join(DATA_DIR, 'figures')
+os.makedirs(FIGS, exist_ok=True)
 
 # Define a local helper to load pickled files safely
 def load_dict(filepath):
@@ -283,29 +283,24 @@ print(f"   One-vs-One (OvO) RBF Score (C={best_C}, gamma={best_gamma}): {ovo_rbf
 print(f"   One-vs-Rest (OvR) RBF Score (C={best_C}, gamma={best_gamma}): {ovr_rbf_score*100:.2f}%")
 
 
-
-# TASK 6: Matrice de confusion
+# =========================================================================
+# TASK 6: CONFUSION MATRIX
+# =========================================================================
 print("\n Step 5: Calculating and Visualizing the Confusion Matrix...")
 
-# 1. Sélection du modèle à évaluer (ici, le modèle OvO avec kernel RBF)
 best_model = pipeline_ovo_rbf
 model_name = "OvO RBF (Tuned)"
 
 y_pred = best_model.predict(X_test)
-
 cm = confusion_matrix(y_test, y_pred)
 
 fig, ax = plt.subplots(figsize=(10, 8))
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=label_names)
-
 disp.plot(cmap=plt.cm.Blues, ax=ax, xticks_rotation='vertical')
+plt.title(f"Confusion Matrix - {model_name}")
+plt.tight_layout()
 
-plt.title(f"Matrice de Confusion - {model_name}")
-plt.tight_layout() # Ajuste les marges pour ne pas couper les labels
-
-cm_output_path = os.path.join(OUTPUT_DIR, "confusion_matrix.png")
-plt.savefig(cm_output_path)
-print(f"   -> Matrice de confusion sauvegardée avec succès dans : {cm_output_path}")
-
-plt.show()
-
+cm_path = os.path.join(FIGS, "confusion_matrix.png")
+plt.savefig(cm_path, bbox_inches='tight', dpi=150)
+plt.close()
+print(f"   -> Confusion matrix saved: {cm_path}")

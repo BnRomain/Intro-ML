@@ -152,6 +152,5 @@ plt.tight_layout()
 # Sauvegarde de la figure
 output_fig_path = os.path.join(FIGS_DIR, f'confusion_matrix_{ARCHITECTURE}.png')
 plt.savefig(output_fig_path, bbox_inches='tight', dpi=150)
+plt.close()
 print(f" [SUCCESS] Graphique sauvegardé avec succès dans : {output_fig_path}")
-
-plt.show()

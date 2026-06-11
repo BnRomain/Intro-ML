@@ -562,23 +562,7 @@ if __name__ == '__main__':
     plt.savefig(os.path.join(FIGS, 'bounding_box_crop.png'), bbox_inches='tight', dpi=150)
     plt.close()
 
-    print("\n Step 3: Saving Aspect-Preserving Scaling Validations")
-    asymmetric_test = np.zeros((20, 80))
-    asymmetric_test[4:16, 10:70] = 0.8
-    stretched_test = resize(asymmetric_test, TARGET_SIZE, anti_aliasing=True)
-    padded_test = resize_and_pad(asymmetric_test, target_size=TARGET_SIZE, pad_type=CHOSEN_PAD_TYPE)
-
-    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(6, 3))
-    ax0.imshow(stretched_test, cmap='gray')
-    ax0.set_title("Stretched Distorted Scaling", fontsize=9)
-    ax0.axis('off')
-    ax1.imshow(padded_test, cmap='gray')
-    ax1.set_title("Aspect-Preserved Padding Scaling", fontsize=9)
-    ax1.axis('off')
-    plt.savefig(os.path.join(FIGS, 'resize_vs_pad_whiteband.png'), bbox_inches='tight', dpi=150)
-    plt.close()
-
-    print("\n Step 4: Stratifying Splits and Training Class PCA Engines")
+    print("\n Step 3: Stratifying Splits and Training Class PCA Engines")
     data_train, data_test, y_train, y_test = train_test_split(
         data_mtx, labels, test_size=0.25, stratify=labels, random_state=42
     )
@@ -754,7 +738,27 @@ if __name__ == '__main__':
     plt.savefig(cm_output_path, bbox_inches='tight', dpi=150)
     plt.close()
 
-    print("\n Step 7: Saving Random Image Preprocessing Comparisons")
+    # Class distribution histogram: actual vs predicted
+    class_names = [label_names[c] for c in sorted(label_names.keys())]
+    actual_counts = [np.sum(y_test == c) for c in sorted(label_names.keys())]
+    pred_counts   = [np.sum(y_pred_knn == c) for c in sorted(label_names.keys())]
+
+    x_cls = np.arange(len(class_names))
+    bar_w = 0.35
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(x_cls - bar_w/2, actual_counts, bar_w, label='Actual',    color='#2e75b6', edgecolor='black')
+    ax.bar(x_cls + bar_w/2, pred_counts,   bar_w, label='Predicted', color='#c00000', edgecolor='black')
+    ax.set_xticks(x_cls)
+    ax.set_xticklabels(class_names, rotation=15, ha='right')
+    ax.set_ylabel('Count')
+    ax.set_title('Class Distribution — Actual vs Predicted (kNN k=5)', fontweight='bold')
+    ax.legend()
+    ax.grid(axis='y', linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIGS, 'knn_class_distribution.png'), bbox_inches='tight', dpi=150)
+    plt.close()
+
+    print("\n Step 6: Saving Random Image Preprocessing Comparisons")
     # Pick 3 random indices from the database
     random.seed(42)
     sample_indices = random.sample(range(len(bw_dogs)), 3)

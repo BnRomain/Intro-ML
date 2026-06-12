@@ -91,7 +91,7 @@ print(f"   - Train/Test Resemblance (Cosine Similarity): {similarity_score:.6f}"
 # that inherit from BaseEstimator and TransformerMixin.
 
 class EdgeInfoPreprocessing(BaseEstimator, TransformerMixin):
-    def __init__(self, nb_h_cells=16, nb_w_cells=16, nb_bins=9):
+    def __init__(self, nb_h_cells=4, nb_w_cells=4, nb_bins=8):
         self.nb_h_cells = nb_h_cells
         self.nb_w_cells = nb_w_cells
         self.nb_bins = nb_bins
@@ -171,7 +171,9 @@ pipeline_svc = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
-    ('classifier', SVC(kernel='linear'))
+    # class_weight='balanced' : équilibre l'importance des classes selon leur nombre d'échantillons
+    # dans le dataset (utile car on a 152 Chihuahuas vs 300 Malamutes, ce qui évite de biaiser le SVM)
+    ('classifier', SVC(kernel='linear', class_weight='balanced', random_state=42))
 ])
 
 
@@ -186,16 +188,14 @@ if pipeline_svc is not None:
     pipeline_svc.set_params(classifier__kernel='rbf')
     
     ### STUDENT IMPLEMENTATION START ###
-    # TODO: Set up a dictionary search parameter grid matching your pipeline's exact component names.
-    # Grid Requirements: 
-    # - PCA components: [5, 10]
-    # - SVC Cost C: [0.1, 1, 10]
-    # - SVC Gamma: [0.01, 0.1]
-
+    # Grille de recherche d'hyperparamètres étendue (param_grid)
+    # - n_components : nombre de composantes PCA extraites par classe
+    # - C : paramètre de régularisation (compromis entre marge et erreurs de classification)
+    # - gamma : coefficient du noyau RBF (influence d'un seul échantillon d'apprentissage)
     param_grid = {
-        'features__pca__n_components': [5, 10, 15],
+        'features__pca__n_components': [3, 5, 10],
         'classifier__C': [1, 5, 10, 20],
-        'classifier__gamma': ['scale', 0.0001, 0.0005, 0.001]
+        'classifier__gamma': [0.002, 0.005, 0.01, 0.02, 0.1]
     }
     # Fill with proper keys (e.g., 'features__pca__n_components') and value lists
     
@@ -229,7 +229,9 @@ pipeline_ovo_linear = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
-    ('classifier', OneVsOneClassifier(SVC(kernel='linear', random_state=42)))
+    # class_weight='balanced' : équilibre l'importance des classes selon leur nombre d'échantillons
+    # dans le dataset (utile car on a 152 Chihuahuas vs 300 Malamutes, ce qui évite de biaiser le SVM)
+    ('classifier', OneVsOneClassifier(SVC(kernel='linear', class_weight='balanced', random_state=42)))
 ])
 pipeline_ovo_linear.fit(X_train, y_train)
 ovo_linear_score = pipeline_ovo_linear.score(X_test, y_test)
@@ -240,7 +242,9 @@ pipeline_ovr_linear = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features),
     ('scaler', StandardScaler()),
-    ('classifier', OneVsRestClassifier(SVC(kernel='linear', random_state=42)))
+    # class_weight='balanced' : équilibre l'importance des classes selon leur nombre d'échantillons
+    # dans le dataset (utile car on a 152 Chihuahuas vs 300 Malamutes, ce qui évite de biaiser le SVM)
+    ('classifier', OneVsRestClassifier(SVC(kernel='linear', class_weight='balanced', random_state=42)))
 ])
 pipeline_ovr_linear.fit(X_train, y_train)
 ovr_linear_score = pipeline_ovr_linear.score(X_test, y_test)
@@ -253,14 +257,16 @@ best_pca_n = grid_search.best_params_['features__pca__n_components']
 
 all_features_rbf = FeatureUnion([
     ('pca', PCAInfoPreprocessing(n_components=best_pca_n)),
-    ('edge', EdgeInfoPreprocessing())
+    ('edge', EdgeInfoPreprocessing(nb_h_cells=4, nb_w_cells=4, nb_bins=8))
 ])
 
 pipeline_ovo_rbf = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features_rbf),
     ('scaler', StandardScaler()),
-    ('classifier', OneVsOneClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, random_state=42)))
+    # class_weight='balanced' : équilibre l'importance des classes selon leur nombre d'échantillons
+    # dans le dataset (utile car on a 152 Chihuahuas vs 300 Malamutes, ce qui évite de biaiser le SVM)
+    ('classifier', OneVsOneClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, class_weight='balanced', random_state=42)))
 ])
 pipeline_ovo_rbf.fit(X_train, y_train)
 ovo_rbf_score = pipeline_ovo_rbf.score(X_test, y_test)
@@ -271,7 +277,9 @@ pipeline_ovr_rbf = Pipeline([
     ('minmax', MinMaxScaler()),
     ('features', all_features_rbf),
     ('scaler', StandardScaler()),
-    ('classifier', OneVsRestClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, random_state=42)))
+    # class_weight='balanced' : équilibre l'importance des classes selon leur nombre d'échantillons
+    # dans le dataset (utile car on a 152 Chihuahuas vs 300 Malamutes, ce qui évite de biaiser le SVM)
+    ('classifier', OneVsRestClassifier(SVC(kernel='rbf', C=best_C, gamma=best_gamma, class_weight='balanced', random_state=42)))
 ])
 pipeline_ovr_rbf.fit(X_train, y_train)
 ovr_rbf_score = pipeline_ovr_rbf.score(X_test, y_test)

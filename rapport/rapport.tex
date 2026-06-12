@@ -27,18 +27,18 @@ Juin 2026}
 \maketitle
 
 \begin{abstract}
-\noindent Dans ce projet, on cherche à reconnaître la race d'un chien à partir d'une photo. On travaille sur un petit jeu de données tiré de PASCAL VOC qui contient six races. On commence par préparer les images (découpage autour du chien, mise à la même taille), puis on en extrait des caractéristiques avec deux méthodes : la PCA et le HOG. Enfin, on teste deux classifieurs, le kNN et le SVM. On regarde aussi l'effet de la normalisation des données et le compromis entre un modèle trop simple et un modèle trop complexe. Au final, on plafonne autour de $55\%$ de bonnes réponses sur les images de test, surtout parce que les races se ressemblent beaucoup une fois transformées en caractéristiques. On termine avec une autre approche, le transfer learning à partir de VGG16, qui fait bondir le score à $98\%$.
+\noindent Dans ce projet de Machine Learning, on cherche à classifier des images de chiens parmi six races issues du jeu de données Stanford Dogs Dataset. Notre travail s'est structuré autour de deux approches : un pipeline classique et du transfer learning. Pour le pipeline classique, après un prétraitement des images (rognage et redimensionnement avec conservation des proportions), on a extrait des descripteurs en combinant une PCA et des histogrammes de gradients orientés (HOG). On a ensuite comparé deux algorithmes : les k-plus proches voisins (kNN) et les SVM (Support Vector Machines), en étudiant l'impact de la normalisation et en optimisant les hyperparamètres. Nos meilleurs modèles classiques plafonnent autour de $59\%$ de précision sur l'ensemble de test, limités par la forte ressemblance entre certaines races. Enfin, on a utilisé le transfer learning à l'aide d'un réseau pré-entraîné VGG16, ce qui nous a permis d'atteindre un score de $98\%$ de bonnes réponses.
 \end{abstract}
 
 \section{Introduction et premier regard sur les données}
 
-Le but du projet est de classer des photos de chiens par race, en utilisant des caractéristiques qu'on calcule nous-mêmes, puis de comparer plusieurs classifieurs. Le jeu de données (\textit{SmallDB}) vient de PASCAL VOC et contient six races : \textit{Chihuahua}, \textit{basset}, \textit{Kerry blue terrier}, \textit{groenendael}, \textit{malinois} et \textit{chow}. Pour chaque photo, on dispose aussi d'un fichier XML qui donne le cadre (la boîte) où se trouve le chien.
+L'objectif de ce projet est de concevoir un système de classification automatique de races de chiens à partir d'images. On travaille sur un jeu de données extrait de Stanford Dogs Dataset, contenant six races : \textit{Chihuahua}, \textit{basset}, \textit{Kerry blue terrier}, \textit{groenendael}, \textit{malinois} et \textit{chow}. En plus des images, on a à disposition des fichiers XML contenant les coordonnées des boîtes englobantes (\textit{bounding boxes}) délimitant la position du chien sur chaque photo.
 
-\paragraph{Les classes sont-elles équilibrées ?} Avant de commencer, on vérifie que chaque race a à peu près le même nombre d'images. Pour cela on calcule l'entropie de Shannon de la répartition des classes :
+\paragraph{Les classes sont-elles équilibrées ?} Avant de lancer nos entraînements, on a vérifié si notre jeu de données était équilibré, car un fort déséquilibre pourrait fausser nos métriques d'évaluation. On a calculé l'entropie de Shannon de la distribution des classes :
 \begin{equation}
 H(P) = -\sum_{i} p_i \ln(p_i),
 \end{equation}
-où $p_i$ est la proportion d'images de la race $i$. Pour six classes, la valeur maximale (donc des classes parfaitement équilibrées) est $\ln(6) \approx 1{,}792$. On obtient $H = 1{,}7863$, ce qui est très proche du maximum. La Figure~\ref{fig:balance} confirme ce résultat : chaque race compte entre $150$ et $196$ images, sans déséquilibre marqué. Les classes sont donc bien équilibrées, et on peut juger nos modèles avec le simple taux de bonnes réponses sans craindre qu'une race domine les autres.
+où $p_i$ est la proportion d'images de la race $i$. Pour six classes, la valeur maximale théorique (cas où toutes les races sont parfaitement équiréparties) est $\ln(6) \approx 1{,}792$. On obtient expérimentalement $H = 1{,}7863$, ce qui est extrêmement proche du maximum. La Figure~\ref{fig:balance} montre le nombre d'images par race. Comme les effectifs varient seulement entre $150$ et $196$ images, on peut considérer que le dataset est bien équilibré. On pourra donc utiliser la précision (accuracy) globale pour comparer nos modèles sans risquer de biais lié à une classe ultra-majoritaire.
 
 \begin{figure}[H]
 \centering
@@ -51,7 +51,7 @@ où $p_i$ est la proportion d'images de la race $i$. Pour six classes, la valeur
 
 \subsection{Découpage autour du chien}
 
-Sur les photos d'origine, il y a souvent beaucoup de décor autour du chien, et parfois d'autres objets. On se sert du fichier XML pour découper l'image autour du chien uniquement (Figure~\ref{fig:bbox}). Comme ça, on garde l'essentiel et on enlève une bonne partie du bruit de fond.
+Les images d'origine contiennent souvent beaucoup d'informations inutiles pour la classification (de l'herbe, des meubles, d'autres objets). Pour éviter que ces éléments perturbent l'apprentissage des modèles, on utilise les coordonnées fournies dans le fichier XML associé à chaque image afin de la rogner (\textit{crop}) autour du chien (Figure~\ref{fig:bbox}). Cela permet de recentrer les descripteurs uniquement sur l'animal.
 
 \begin{figure}[H]
 \centering
@@ -62,7 +62,7 @@ Sur les photos d'origine, il y a souvent beaucoup de décor autour du chien, et 
 
 \subsection{Mise à la même taille sans déformer}
 
-Les classifieurs ont besoin d'images toutes de la même taille : on les ramène donc à $256 \times 256$ pixels. Si on redimensionne sans précaution, le chien se retrouve écrasé ou étiré. Pour éviter ça, on garde les proportions de l'image : on la met à l'échelle avec le facteur $\min(h_r, w_r)$ où $h_r = H_{\text{cible}}/h$ et $w_r = W_{\text{cible}}/w$, puis on la place au centre d'un fond de taille fixe. Il reste alors des bords vides à remplir, et on a testé trois façons de le faire : en noir, en blanc, ou en prolongeant la couleur du bord de l'image. La Figure~\ref{fig:padding} compare ces trois choix sur trois images de formes différentes.
+Nos classifieurs ont besoin d'images de taille identique : on les ramène donc à une taille fixe de $64 \times 64$ pixels dans notre code final. Si on redimensionne directement sans précaution, le chien se retrouve écrasé ou étiré. Pour éviter cela, on garde les proportions de l'image en la mettant à l'échelle avec le facteur $\min(h_r, w_r)$ où $h_r = H_{\text{cible}}/h$ et $w_r = W_{\text{cible}}/w$, puis on la place au centre d'un fond de taille fixe. Il reste alors des bandes vides à remplir, et on a testé plusieurs méthodes : le noir, le blanc, le prolongement des pixels du bord (\textit{continuous}), l'effet miroir (\textit{mirroring}), et la propagation de flou (\textit{propagated blur}). La Figure~\ref{fig:padding} illustre ces choix sur trois images de formes différentes.
 
 \begin{figure}[H]
 \centering
@@ -71,13 +71,13 @@ Les classifieurs ont besoin d'images toutes de la même taille : on les ramène 
 \label{fig:padding}
 \end{figure}
 
-On garde le \textbf{remplissage continu} pour la suite. Le remplissage noir crée une frontière nette entre l'image et le bord, et cette frontière serait prise pour un vrai contour par le HOG, ce qu'on ne veut pas.
+Pour la suite, on a choisi d'utiliser le remplissage par propagation de flou (\textit{propagated blur}) combiné au mode miroir ou bord. En effet, un remplissage noir ou blanc uniforme crée une frontière très nette avec le bord de l'image d'origine. Cette transition brusque génère des gradients artificiels qui viendraient fausser les descripteurs HOG en faisant croire à la présence de contours importants sur les contours du cadre.
 
 \section{Calcul des caractéristiques}
 
 \subsection{La PCA}
 
-Une image de $256 \times 256$ pixels, c'est un vecteur de $65\,536$ nombres : beaucoup trop pour travailler directement. La PCA permet de résumer cette information sur bien moins d'axes tout en gardant l'essentiel. La Figure~\ref{fig:scree} montre la part d'information (la variance) portée par chaque axe, ainsi que le total au fur et à mesure. On voit que les premiers axes concentrent presque tout : on atteint $90\%$ de l'information avec un nombre d'axes très petit comparé au départ. Cela veut dire que les images contiennent beaucoup de redites.
+Une image en niveaux de gris de $64 \times 64$ pixels représente un vecteur de $4\,096$ variables, ce qui est trop grand pour des algorithmes simples comme le kNN. On utilise donc l'analyse en composantes principales (PCA) pour réduire la dimensionnalité tout en conservant le maximum d'information (variance). La Figure~\ref{fig:scree} montre la variance portée par chaque axe (diagramme des éboulis de la PCA globale). On remarque que les premières composantes concentrent une grande partie de la variance cumulée, ce qui montre qu'il y a beaucoup de redondance dans les pixels des images d'origine.
 
 \begin{figure}[H]
 \centering
@@ -90,7 +90,7 @@ Une image de $256 \times 256$ pixels, c'est un vecteur de $65\,536$ nombres : be
 \begin{equation}
 \hat{x}_k = \bar{x} + \sum_{i=1}^{k} \langle x - \bar{x},\, u_i \rangle\, u_i,
 \end{equation}
-avec à chaque fois l'écart $L_2 = \lVert x - \hat{x}_k \rVert$ entre l'image d'origine et sa reconstruction. Avec peu d'axes, on ne voit qu'une forme floue. Plus on en ajoute, plus l'image redevient nette, et l'écart tombe vers zéro quand $k$ se rapproche du nombre d'images d'entraînement.
+avec à chaque fois l'écart $L_2 = \lVert x - \hat{x}_k \rVert$ entre l'image d'origine et sa reconstruction. La Figure~\ref{fig:approx} montre cette reconstruction pour différentes valeurs de $k$. On constate qu'avec très peu d'axes (ex: $k=10$), l'image reconstruite est très floue et ne conserve que la silhouette globale et la luminosité moyenne. Plus $k$ augmente, plus les détails fins réapparaissent et plus l'erreur L2 diminue.
 
 \begin{figure}[H]
 \centering
@@ -99,7 +99,7 @@ avec à chaque fois l'écart $L_2 = \lVert x - \hat{x}_k \rVert$ entre l'image d
 \label{fig:approx}
 \end{figure}
 
-\paragraph{Est-ce que les races se distinguent ?} Quand on place toutes les images sur les deux premiers axes de la PCA (Figure~\ref{fig:scatter}), on voit un point important : les races sont toutes mélangées, sans groupes nets. C'est un premier signe que la tâche sera difficile, car aucune ligne simple ne sépare les races.
+\paragraph{Est-ce que les races se distinguent ?} Si on projette l'ensemble des données sur les deux premiers axes principaux (Figure~\ref{fig:scatter}), on observe que les différentes races de chiens sont complètement mélangées. Il n'y a pas de groupes distincts par classe. Cela nous montre dès le départ que le problème de classification sera difficile à résoudre linéairement avec des descripteurs basiques.
 
 \begin{figure}[H]
 \centering
@@ -110,7 +110,7 @@ avec à chaque fois l'écart $L_2 = \lVert x - \hat{x}_k \rVert$ entre l'image d
 
 \subsection{Le HOG}
 
-Le HOG décrit les contours de l'image, une information que la PCA ne capture pas vraiment (la PCA voit surtout l'allure générale). On découpe l'image en petites cases, et dans chaque case on regarde dans quelles directions vont les contours, en additionnant leur force par direction. Les contours sont calculés avec les filtres de Sobel. La Figure~\ref{fig:hog} montre ces contours : la force globale et les directions horizontale et verticale.
+Le descripteur HOG (Histogram of Oriented Gradients) permet de capturer les contours et les textures locales, ce que la PCA globale (qui s'intéresse surtout à l'intensité globale des pixels) a du mal à faire. On découpe l'image en petites cellules (une grille de $4 \times 4$ cellules dans notre cas), on calcule les gradients horizontaux $g_x$ et verticaux $g_y$ via des filtres de Sobel pour chaque pixel (Figure~\ref{fig:hog}), puis on construit un histogramme des orientations des gradients pondéré par leur intensité dans chaque cellule.
 
 \begin{figure}[H]
 \centering
@@ -119,17 +119,21 @@ Le HOG décrit les contours de l'image, une information que la PCA ne capture pa
 \label{fig:hog}
 \end{figure}
 
-Pour finir, on met bout à bout les caractéristiques de la PCA et du HOG. On a ainsi à la fois une description de l'allure générale et une description des contours.
+Pour représenter chaque image, on concatène les caractéristiques issues de la PCA (calculée par classe pour projeter sur les sous-espaces) et les descripteurs HOG. On obtient ainsi un vecteur combinant l'allure générale et les contours locaux.
 
 \section{Classification avec le kNN}
 
 \subsection{Pourquoi normaliser les données}
 
-Les caractéristiques de la PCA et du HOG n'ont pas du tout les mêmes ordres de grandeur : la PCA donne parfois de très grands nombres, alors que le HOG reste petit. Or le kNN compare les images avec une distance. Sans normalisation, ce sont les grands nombres qui décident de tout, et les autres ne comptent presque plus. La partie gauche de la Figure~\ref{fig:task6} compare les résultats avec et sans \texttt{StandardScaler} : avec la normalisation, l'erreur de test baisse. La normalisation est donc nécessaire pour que chaque caractéristique ait son mot à dire.
+Les composantes issues de la PCA et les valeurs du HOG possèdent des ordres de grandeur très différents. Comme l'algorithme kNN repose sur le calcul d'une distance euclidienne dans l'espace des descripteurs, les variables ayant les plus grandes amplitudes numériques domineraient artificiellement la distance. Pour équilibrer la contribution de chaque descripteur, on applique un centrage-réduction (\texttt{StandardScaler}). La partie gauche de la Figure~\ref{fig:task6} montre que la normalisation améliore nettement les performances en faisant baisser la perte de Hamming sur le test.
 
 \subsection{Modèle trop simple ou trop complexe ?}
 
-La partie centrale de la Figure~\ref{fig:task6} montre l'erreur sur l'entraînement et sur le test selon la valeur de $k$. À $k=1$, l'erreur d'entraînement est nulle : chaque image est sa propre plus proche voisine, donc elle se classe forcément bien. Quand $k$ augmente, l'erreur d'entraînement monte, car on regarde de plus en plus de voisins, et beaucoup appartiennent à d'autres races et finissent par l'emporter (c'est le mélange qu'on voyait sur la Figure~\ref{fig:scatter}). C'est le compromis classique : un petit $k$ donne un modèle très collé aux données, un grand $k$ donne un modèle plus lisse mais moins précis.
+La courbe centrale de la Figure~\ref{fig:task6} présente l'évolution des erreurs d'entraînement et de test en fonction du nombre de voisins $k$. On retrouve ici l'illustration classique du compromis biais-variance :
+\begin{itemize}
+\item Pour $k=1$, l'erreur d'entraînement est nulle car chaque image est son propre voisin le plus proche. Le modèle est en surapprentissage total.
+\item Quand $k$ augmente, la frontière de décision se lisse, ce qui fait augmenter l'erreur d'entraînement. Sur le test, l'erreur commence par baisser avant de remonter légèrement pour les grandes valeurs de $k$, car le modèle devient trop simple (sous-apprentissage) et n'arrive plus à capturer la spécificité des classes.
+\end{itemize}
 
 \begin{figure}[H]
 \centering
@@ -138,15 +142,15 @@ La partie centrale de la Figure~\ref{fig:task6} montre l'erreur sur l'entraînem
 \label{fig:task6}
 \end{figure}
 
-\paragraph{Attention à la pondération par distance.} Si on utilise l'option \texttt{weights='distance'}, l'erreur d'entraînement est \emph{toujours} nulle, quel que soit $k$. La raison est simple : chaque image d'entraînement est à distance nulle d'elle-même, son poids devient donc énorme et elle se prédit toujours elle-même. Une erreur d'entraînement de $0$ ne veut donc pas dire que le modèle est bon : c'est juste un effet automatique. Seule l'erreur de test compte vraiment.
+\paragraph{Attention à la pondération par distance.} Si on utilise l'option \texttt{weights='distance'}, l'erreur d'entraînement reste nulle pour n'importe quelle valeur de $k$. C'est un comportement mécanique : lors de la prédiction sur un point de l'ensemble d'entraînement, ce point se trouve à une distance nulle de lui-même, ce qui lui donne un poids infini. Cela montre bien qu'il ne faut pas se fier à une erreur d'entraînement nulle pour évaluer un modèle.
 
 \subsection{Apport des caractéristiques}
 
-La partie droite de la Figure~\ref{fig:task6} compare la PCA seule, le HOG seul, et les deux ensemble. La combinaison des deux donne la meilleure erreur de test. Mélanger allure et contours aide donc, même si le gain reste petit.
+La partie droite de la Figure~\ref{fig:task6} présente une étude d'ablation des descripteurs (PCA seule, HOG seul, et PCA + HOG). La combinaison des deux caractéristiques donne la plus faible perte de Hamming sur l'ensemble de test. Cela montre que la forme globale (PCA) et les contours locaux (HOG) sont bien complémentaires.
 
 \subsection{Où le modèle se trompe}
 
-La matrice de confusion (Figure~\ref{fig:cm_knn}) montre comment se comporte notre kNN de référence ($k=5$, PCA+HOG, normalisé). On voit qu'il prédit trop souvent certaines races (\textit{Kerry blue terrier}, \textit{chow}) et pas assez d'autres (\textit{Chihuahua}, \textit{groenendael}). Le modèle a donc tendance à pencher vers les races les plus présentes dans l'espace des caractéristiques.
+La matrice de confusion du kNN de référence ($k=5$, PCA+HOG, normalisé, Figure~\ref{fig:cm_knn}) montre que le modèle a tendance à sur-prédire certaines races comme le \textit{Kerry blue terrier} et le \textit{chow}, au détriment d'autres races comme le \textit{Chihuahua} ou le \textit{groenendael}. Cela s'explique par la forte superposition des classes dans l'espace des descripteurs classiques.
 
 \begin{figure}[H]
 \centering
@@ -157,11 +161,11 @@ La matrice de confusion (Figure~\ref{fig:cm_knn}) montre comment se comporte not
 
 \section{Classification avec le SVM}
 
-Dans la deuxième partie, on automatise tout le pipeline avec les outils de scikit-learn (\texttt{Pipeline}, \texttt{FeatureUnion}) et on remplace le kNN par un SVM.
+Dans la seconde partie du projet, on a structuré notre code sous forme de pipeline Scikit-Learn (\texttt{Pipeline} et \texttt{FeatureUnion}) pour automatiser et sécuriser l'enchaînement des étapes, ce qui permet d'éviter les fuites de données (\textit{data leakage}). On remplace également le kNN par un classifieur SVM.
 
-\paragraph{Le découpage est-il correct ?} Avant tout, on vérifie que l'ensemble d'entraînement et l'ensemble de test ont bien la même répartition des races. On compare leurs distributions avec la similarité cosinus et on obtient $0{,}99995$, soit quasiment $1$. Le découpage garde donc bien le même équilibre des deux côtés, et rien ne fausse l'évaluation.
+\paragraph{Le découpage est-il correct ?} Pour s'assurer que notre découpage train/test (\texttt{train\_test\_split} stratifié) a bien conservé la même répartition des classes, on a calculé la similarité cosinus entre les distributions empiriques de l'entraînement et du test. On obtient un score de $0{,}99995$, ce qui confirme que la proportion de chaque race est identique des deux côtés et que notre évaluation ne sera pas biaisée.
 
-\paragraph{Réglage des paramètres.} On cherche les meilleurs réglages avec une recherche par grille (\texttt{GridSearchCV}, validation croisée en 3 parties) : nombre d'axes PCA, coût $C$ et paramètre $\gamma$ du noyau RBF. Le meilleur réglage trouvé est $C=5$, $\gamma=10^{-4}$ et $15$ axes PCA par race, pour un score de $55{,}78\%$ sur le test.
+\paragraph{Réglage des paramètres.} On a cherché les meilleurs paramètres par grille de recherche (\texttt{GridSearchCV} avec validation croisée à 3 plis). Le meilleur réglage identifié est : 5 composantes PCA par classe, $C=10$ et $\gamma=0{,}005$ pour le noyau RBF.
 
 \paragraph{Comparaison des stratégies.} Un SVM ne sait séparer que deux classes à la fois. Pour gérer six races, on compare deux stratégies : \textit{un contre un} (OvO) et \textit{un contre tous} (OvR), chacune avec un noyau linéaire puis un noyau RBF (Table~\ref{tab:svm}).
 
@@ -173,15 +177,15 @@ Dans la deuxième partie, on automatise tout le pipeline avec les outils de scik
 \toprule
 \textbf{Stratégie} & \textbf{Bonnes réponses (test)} \\
 \midrule
-OvO --- noyau linéaire & $53{,}78\%$ \\
-OvR --- noyau linéaire & $50{,}60\%$ \\
-OvO --- noyau RBF (réglé) & $55{,}78\%$ \\
-OvR --- noyau RBF (réglé) & $\mathbf{57{,}77\%}$ \\
+OvO --- noyau linéaire & $52{,}59\%$ \\
+OvR --- noyau linéaire & $48{,}61\%$ \\
+OvO --- noyau RBF (réglé) & $58{,}57\%$ \\
+OvR --- noyau RBF (réglé) & $\mathbf{59{,}36\%}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Le noyau RBF fait mieux que le noyau linéaire, ce qui est logique vu qu'on ne peut pas séparer les races avec de simples lignes (Figure~\ref{fig:scatter}). La matrice de confusion du meilleur SVM (Figure~\ref{fig:cm_svm}) montre une diagonale un peu plus marquée que le kNN pour certaines races, mais il reste pas mal de confusions.
+Le noyau RBF obtient de meilleurs résultats que le noyau linéaire, ce qui s'explique par la distribution non linéaire des classes vue précédemment (Figure~\ref{fig:scatter}). La matrice de confusion du meilleur SVM (Figure~\ref{fig:cm_svm}) montre une diagonale un peu plus marquée que celle du kNN, mais il reste de nombreuses erreurs.
 
 \begin{figure}[H]
 \centering
@@ -190,31 +194,34 @@ Le noyau RBF fait mieux que le noyau linéaire, ce qui est logique vu qu'on ne p
 \label{fig:cm_svm}
 \end{figure}
 
+En analysant cette matrice, on remarque que la plus forte confusion a lieu entre le \textit{Kerry blue terrier} et le \textit{groenendael}. Ces deux races possèdent une morphologie proche (silhouette sombre, poils longs et touffus), ce qui rend leurs descripteurs HOG et PCA très semblables. Une solution intéressante pour y remédier serait de concevoir un classifieur binaire spécifique, entraîné uniquement à discriminer ces deux races.
+
 \section{Discussion et piste pour aller plus loin}
 
-\subsection{Pourquoi on bloque autour de 55 \%}
+\subsection{Pourquoi on plafonne sous les 60 \%}
 
-Le kNN comme le SVM tournent autour de $55$ à $58\%$ de bonnes réponses. Ce n'est pas vraiment une question de choix du classifieur ou de réglage : le vrai problème, ce sont les \textbf{caractéristiques}. La PCA et le HOG décrivent des choses trop générales pour distinguer des races de chiens, dont les différences se jouent sur des détails fins (oreilles, museau, poil). C'est exactement ce qu'on voyait dès le début avec le mélange des races sur la Figure~\ref{fig:scatter}. Aucun réglage de $k$, de $C$ ou de $\gamma$ ne peut créer une séparation qui n'existe pas dans les données.
+Le kNN et le SVM plafonnent tous les deux sous la barre des $60\%$ de précision. Ce blocage ne vient pas de l'optimisation des algorithmes eux-mêmes, mais de la nature des descripteurs utilisés. La PCA et le HOG décrivent des formes globales et des contours trop génériques. Or, distinguer des races de chiens nécessite d'analyser des détails très fins (la forme des oreilles, la texture précise du pelage, la truffe). Comme nous l'avions constaté avec la projection PCA (Figure~\ref{fig:scatter}), ces descripteurs ne permettent pas de séparer les classes. Aucun classifieur classique ne peut séparer des données qui ne le sont pas au niveau de leurs descripteurs.
 
 \subsection{Le transfer learning}
 
-Pour faire mieux, on propose d'utiliser un réseau de neurones déjà entraîné sur des millions d'images (par exemple VGG16 ou Xception) pour calculer les caractéristiques à notre place. L'idée est de remplacer la PCA et le HOG par les caractéristiques de ce réseau, bien plus utiles car apprises sur d'énormes quantités d'images. En pratique :
+Pour dépasser cette limite, on a mis en œuvre du \textit{transfer learning} en utilisant un réseau de neurones pré-entraîné sur ImageNet (VGG16). Au lieu d'utiliser la PCA et le HOG, on utilise les couches de convolution de ce réseau comme extracteur de caractéristiques (\textit{feature extractor}).
+En pratique :
 \begin{itemize}
-\item on garde les couches du réseau telles quelles, comme un calculateur de caractéristiques ;
-\item on ajoute juste une petite partie à entraîner sur nos six races ;
-\item on donne les images en couleur, à la taille attendue par le réseau ($224\times224$ pour VGG16).
+\item On gèle les poids du réseau VGG16 pour ne pas perdre l'apprentissage sur ImageNet.
+\item On ajoute une couche fully-connected de classification à la fin (une couche dense de $256$ neurones suivie d'une couche softmax à $6$ sorties) que l'on entraîne sur nos images.
+\item On redimensionne nos images d'origine en couleur à la taille $224 \times 224$ pixels requise par VGG16.
 \end{itemize}
-On a implémenté cette approche avec VGG16 (couches gelées, une tête à $256$ neurones puis une couche de sortie à $6$ classes, entraînée sur $8$ époques). Le résultat est sans appel : on passe d'environ $57\%$ avec PCA+HOG à \textbf{$98\%$ de bonnes réponses} sur le test, soit seulement $5$ erreurs sur $251$ images. La matrice de confusion (Figure~\ref{fig:cm_vgg16}) est quasi diagonale, alors que celles du kNN et du SVM restaient très confuses. Cela confirme notre diagnostic : le problème n'était pas le classifieur mais les caractéristiques, et celles d'un réseau pré-entraîné sur des millions d'images séparent les races sans difficulté. À noter que ces six races font partie des classes d'ImageNet, ce qui joue clairement en faveur de VGG16.
+On a entraîné ce modèle sur 8 époques. La précision obtenue sur le jeu de test bondit à \textbf{$98\%$}, représentant seulement 5 erreurs de classification sur 251 images. La matrice de confusion obtenue (Figure~\ref{fig:cm_vgg16}) est quasiment diagonale. Ce résultat confirme que le facteur limitant du pipeline classique résidait dans les descripteurs HOG/PCA, tandis que les caractéristiques apprises par VGG16 capturent des détails discriminants bien plus riches. À noter que les six races de notre dataset font partie des classes d'ImageNet, ce qui a facilité l'apprentissage.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{confusion_matrix_vgg16.png}
-\caption{Matrice de confusion du transfer learning (VGG16, couches gelées). La diagonale est presque parfaite : $98\%$ de bonnes réponses, contre $\sim57\%$ pour les méthodes classiques.}
+\caption{Matrice de confusion du transfer learning (VGG16, couches gelées). La diagonale est presque parfaite : $98\%$ de bonnes réponses, contre $\sim59\%$ pour les méthodes classiques.}
 \label{fig:cm_vgg16}
 \end{figure}
 
 \section{Conclusion}
 
-On a construit une chaîne complète de classification d'images, du nettoyage des photos jusqu'à l'évaluation, en passant par le calcul des caractéristiques (PCA, HOG) et deux classifieurs (kNN et SVM). Ce travail nous a fait toucher du doigt plusieurs idées importantes : l'utilité de normaliser les données, le compromis entre un modèle trop simple et trop complexe, l'intérêt d'un découpage équilibré, et surtout le fait que la qualité des caractéristiques fixe la limite de ce qu'on peut atteindre. Ici, les méthodes classiques bloquent vers $57\%$ parce que les races se ressemblent trop une fois transformées. Le transfer learning à partir de VGG16 confirme ce diagnostic en atteignant $98\%$ : en remplaçant nos caractéristiques par celles d'un réseau pré-entraîné, on dépasse largement le plafond des méthodes classiques.
+En conclusion, on a mis en place une chaîne complète de traitement d'images, allant du rognage des photos selon leurs boîtes englobantes jusqu'à l'évaluation de classifieurs kNN et SVM. Ce projet nous a permis de mettre en pratique plusieurs notions clés du cours de Machine Learning : l'importance du centrage-réduction des descripteurs, la gestion du compromis biais-variance, et la stratification lors du découpage train/test. On a pu constater que la qualité de l'extraction des caractéristiques détermine la performance maximale du classifieur. Les descripteurs classiques (PCA, HOG) se révèlent trop limités face à des classes morphologiquement proches, plafonnant à environ $59\%$ de précision. L'utilisation du transfer learning avec VGG16 a permis d'illustrer la puissance des descripteurs appris par apprentissage profond, portant notre taux de réussite à $98\%$.
 
 \end{document}

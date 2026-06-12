@@ -130,7 +130,7 @@ rect(s, 0, 0, Inches(4.6), SH, LIGHT)
 txt(s, Inches(0.6), Inches(0.7), Inches(3.6), Inches(1), "Le projet\nen bref",
     30, NAVY, bold=True)
 txt(s, Inches(0.6), Inches(2.4), Inches(3.6), Inches(4),
-    "Reconnaître la race\nd'un chien à partir\nd'une photo.\n\n6 races · 1 petit jeu\nde données (PASCAL VOC).",
+    "Reconnaître la race\nd'un chien à partir\nd'une photo.\n\n6 races · 1 petit jeu\nde données (Stanford Dogs).",
     18, GRAY)
 plan = [
     ("1.  Données & préparation des images", PRESENTERS["Evrard"], "Evrard"),
@@ -152,7 +152,7 @@ for label, col, who in plan:
 # 3. Données
 s = content_slide("Les données : 6 races, classes équilibrées", "Evrard", "1 · Données")
 bullets(s, Inches(0.6), Inches(1.5), Inches(5.6), Inches(4), [
-    ("Jeu SmallDB tiré de PASCAL VOC", PRESENTERS["Evrard"]),
+    ("Jeu SmallDB tiré de Stanford Dogs", PRESENTERS["Evrard"]),
     ("6 races : Chihuahua, basset, Kerry blue\nterrier, groenendael, malinois, chow", PRESENTERS["Evrard"]),
     ("Un XML par photo = cadre du chien", PRESENTERS["Evrard"]),
     ("Classes équilibrées ?  Entropie de\nShannon  H = 1,786  ≈  ln(6) = 1,792", PRESENTERS["Evrard"]),
@@ -176,10 +176,10 @@ s = content_slide("Préparation 2 : même taille, sans déformer", "Evrard", "1 
 fitted(s, fig("preprocessing_comparaisonV2.png"), Inches(0.6), Inches(1.6),
        Inches(8.3), Inches(5.3))
 bullets(s, Inches(9.2), Inches(2.0), Inches(3.6), Inches(4.5), [
-    ("Cible : 256×256 px", PRESENTERS["Evrard"]),
+    ("Cible : 64×64 px", PRESENTERS["Evrard"]),
     ("On garde les proportions\n(pas d'écrasement)", PRESENTERS["Evrard"]),
-    ("Bords vides à remplir :\nnoir / blanc / continu", PRESENTERS["Evrard"]),
-    ("On garde le remplissage\ncontinu : pas de faux\ncontour pour le HOG", PRESENTERS["Evrard"]),
+    ("Bords vides à remplir : noir, blanc,\ncontinu, miroir, floutage", PRESENTERS["Evrard"]),
+    ("Choix : propagation de flou\npour éviter de faux contours HOG", PRESENTERS["Evrard"]),
 ], size=17, gap=14)
 
 # ============================================================ ROMAIN
@@ -190,7 +190,7 @@ fitted(s, fig("pca_reconstruction.png"), Inches(0.6), Inches(1.55),
 fitted(s, fig("pca_approximatrion.png"), Inches(7.7), Inches(1.55),
        Inches(5.2), Inches(3.0))
 bullets(s, Inches(7.8), Inches(4.9), Inches(5.0), Inches(2.2), [
-    ("256×256 = 65 536 valeurs → trop", PRESENTERS["Romain"]),
+    ("64×64 = 4 096 valeurs → trop", PRESENTERS["Romain"]),
     ("90 % de l'info sur très peu d'axes", PRESENTERS["Romain"]),
     ("Reconstruction : flou → net quand k ↑", PRESENTERS["Romain"]),
 ], size=15, gap=8)
@@ -247,17 +247,17 @@ s = content_slide("SVM : pipeline automatisé + réglage", "Zouhair", "4 · SVM"
 bullets(s, Inches(0.6), Inches(1.6), Inches(5.7), Inches(3), [
     ("Pipeline scikit-learn\n(Pipeline + FeatureUnion)", PRESENTERS["Zouhair"]),
     ("Découpage train/test cohérent :\ncosinus = 0,99995", PRESENTERS["Zouhair"]),
-    ("GridSearchCV (CV 3 folds) :\nC=5, γ=1e-4, 15 axes PCA/race", PRESENTERS["Zouhair"]),
+    ("GridSearchCV (CV 3 folds) :\nC=10, γ=0,005, 5 axes PCA/classe", PRESENTERS["Zouhair"]),
     ("Noyau RBF > linéaire (races\nnon séparables par des droites)", PRESENTERS["Zouhair"]),
 ], size=17, gap=12)
 # table
 tx, ty, tw = Inches(6.7), Inches(1.7), Inches(6.0)
 rows = [
     ("Stratégie", "Test", True),
-    ("OvO — linéaire", "53,78 %", False),
-    ("OvR — linéaire", "50,60 %", False),
-    ("OvO — RBF réglé", "55,78 %", False),
-    ("OvR — RBF réglé", "57,77 %", "best"),
+    ("OvO — noyau linéaire", "52,59 %", False),
+    ("OvR — noyau linéaire", "48,61 %", False),
+    ("OvO — noyau RBF réglé", "58,57 %", False),
+    ("OvR — noyau RBF réglé", "59,36 %", "best"),
 ]
 rh = Inches(0.78)
 for i, (a, bcell, kind) in enumerate(rows):
@@ -287,7 +287,7 @@ bullets(s, Inches(8.7), Inches(2.4), Inches(4.1), Inches(3.5), [
 ], size=17, gap=16)
 
 # 13. Discussion — plafond
-s = content_slide("Pourquoi on plafonne vers 55-58 %", "Zouhair", "5 · Limites")
+s = content_slide("Pourquoi on plafonne sous les 60 %", "Zouhair", "5 · Limites")
 rect(s, Inches(0.6), Inches(1.7), Inches(12.1), Inches(1.6), LIGHT)
 txt(s, Inches(0.9), Inches(1.95), Inches(11.5), Inches(1.2),
     "Le problème n'est pas le classifieur ni le réglage : ce sont les CARACTÉRISTIQUES.",
@@ -311,7 +311,7 @@ rect(s, Inches(0.6), Inches(5.0), Inches(6.0), Inches(1.5), NAVY)
 txt(s, Inches(0.7), Inches(5.18), Inches(5.8), Inches(0.5),
     "PCA+HOG  →  VGG16", 16, ORANGE, bold=True, align=PP_ALIGN.CENTER)
 txt(s, Inches(0.7), Inches(5.6), Inches(5.8), Inches(0.8),
-    "57 %   →   98 %", 30, WHITE, bold=True, align=PP_ALIGN.CENTER)
+    "59 %   →   98 %", 30, WHITE, bold=True, align=PP_ALIGN.CENTER)
 fitted(s, fig("confusion_matrix_vgg16.png"), Inches(6.9), Inches(1.5),
        Inches(6.0), Inches(5.3))
 
@@ -324,7 +324,7 @@ txt(s, Inches(1.0), Inches(0.9), Inches(11.3), Inches(0.8), "Conclusion",
 bullets_items = [
     "Chaîne complète : nettoyage → caractéristiques → classification → évaluation",
     "Idées clés : normalisation, compromis biais-variance, découpage équilibré",
-    "La qualité des caractéristiques fixe la limite : ~57 % en classique",
+    "La qualité des caractéristiques fixe la limite : ~59 % en classique",
     "Transfer learning (VGG16) confirme le diagnostic : 98 %",
 ]
 tb = s.shapes.add_textbox(Inches(1.6), Inches(2.3), Inches(10.1), Inches(3.5))

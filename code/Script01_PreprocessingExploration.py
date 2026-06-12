@@ -233,6 +233,36 @@ def img_resize(img, target_size):
     return resize(img, target_size, anti_aliasing=True)
 
 
+def pad_propagated_blur(resized_img, paddings, top, bottom, left, right, multi_channel=False, iterations=1, sigma=0.5):
+    """
+    Remplissage par propagation de flou (propagated blur) :
+    1. On applique d'abord un padding 'edge' (prolongation des bords).
+    2. On applique un flou gaussien de manière itérative uniquement sur la zone de padding (grâce à un masque).
+       Cela permet d'atténuer les discontinuités de gradients aux frontières de l'image.
+    """
+    # Padding initial (continuous / edge replication)
+    padded = np.pad(resized_img, paddings, mode='edge').astype(float)
+    
+    # Création d'un masque pour la zone de padding (True = padding, False = image originale)
+    mask = np.ones(padded.shape[:2], dtype=bool)
+    mask[top:bottom, left:right] = False
+    
+    if multi_channel:
+        mask_3d = np.repeat(mask[:, :, np.newaxis], padded.shape[2], axis=2)
+    else:
+        mask_3d = mask
+
+    # Floutage itératif restreint à la zone de padding
+    for _ in range(iterations):
+        if multi_channel:
+            blurred = gaussian(padded, sigma=sigma, channel_axis=2)
+        else:
+            blurred = gaussian(padded, sigma=sigma)
+        padded[mask_3d] = blurred[mask_3d]
+        
+    return padded
+
+
 def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     """
     ========================================================================
@@ -281,19 +311,23 @@ def resize_and_pad(img, target_size=TARGET_SIZE, pad_type='white'):
     else:
         output_img[top:bottom, left:right] = resized_img
 
+    # On calcule les marges de padding de chaque côté
+    pad_top = top
+    pad_bottom = height - bottom
+    pad_left = left
+    pad_right = width - right
 
-    if pad_type.lower() == 'continuous':
+    paddings = ((pad_top, pad_bottom), (pad_left, pad_right))
+    if multi_channel:
+        paddings += ((0, 0),)
 
-        pad_top = top
-        pad_bottom = height - bottom
-        pad_left = left
-        pad_right = width - right
-
-        paddings = ((pad_top, pad_bottom), (pad_left, pad_right))
-        if multi_channel:
-            paddings += ((0, 0),)
-
+    pad_type_lower = pad_type.lower()
+    if pad_type_lower == 'continuous':
         output_img = np.pad(resized_img, paddings, mode='edge')
+    elif pad_type_lower in ['reflect', 'mirror', 'reflection']:
+        output_img = np.pad(resized_img, paddings, mode='reflect')
+    elif pad_type_lower == 'propagated_blur':
+        output_img = pad_propagated_blur(resized_img, paddings, top, bottom, left, right, multi_channel=multi_channel)
 
     return output_img
 
@@ -520,7 +554,7 @@ def compute_hog(image, nb_height_cells=4, nb_width_cells=4, nb_bins=8):
 # =========================================================================
 if __name__ == '__main__':
     # Options: 'white', 'black', 'continuous', 'reflect', 'random', 'propagated_blur'
-    CHOSEN_PAD_TYPE = 'continuous'
+    CHOSEN_PAD_TYPE = 'propagated_blur'
 
     print("Step 1: Loading Dataset")
 
